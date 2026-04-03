@@ -1,0 +1,4 @@
+modus-memory
+modus-memory-*
+*.exe
+dist/
