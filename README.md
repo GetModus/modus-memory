@@ -24,13 +24,13 @@
 
 One binary. No cloud. No Docker. No database. Your memories stay on your disk as files you can read, edit, grep, and back up with git.
 
-> **16,000+ documents indexed in 2 seconds. Cached searches in <100 microseconds. 6MB binary, zero dependencies.**
+> **Completely free. 16,000+ documents indexed in 2 seconds. Cached searches in <100 microseconds. 6MB binary, zero dependencies.**
 
 ## Why
 
 Every AI conversation starts from zero. Your assistant forgets everything the moment the window closes.
 
-Cloud memory services charge $19–249/month to store your personal data on their servers. Open-source alternatives require Python, Docker, PostgreSQL, and an afternoon of setup. The official MCP memory server is deliberately minimal — no search ranking, no decay, no cross-referencing.
+Cloud memory services charge $19–249/month to store your personal data on their servers. Open-source alternatives require Python, Docker, PostgreSQL, and an afternoon of setup. The official MCP memory server is deliberately minimal — no search ranking, no decay, no cross-referencing. Other "zero-infrastructure" tools still need Node.js runtimes and LLM API keys for every search.
 
 **modus-memory** fills the gap:
 
@@ -170,60 +170,30 @@ Your AI client now has 11 memory tools. Ask it to:
 ```bash
 modus-memory health
 
-# modus-memory 0.1.0
+# modus-memory 0.2.0
 # Vault: /Users/you/vault
 # Documents: 847
 # Facts: 234 total, 230 active
 # Cross-refs: 156 subjects, 89 tags, 23 entities
 ```
 
-## Pricing
-
-| | Free | Pro ($10/mo) |
-|---|---|---|
-| Documents | Up to 1,000 | Unlimited |
-| BM25 search | Yes | Yes |
-| Read / write / list | Yes | Yes |
-| Memory facts | Yes | Yes |
-| FSRS decay + reinforcement | — | Yes |
-| Cross-referencing | — | Yes |
-| Librarian query expansion | Yes | Yes |
-| Khoj import | Yes | Yes |
-| Priority support | — | Yes |
-
-```bash
-# Buy Pro
-# → https://modus-memory.lemonsqueezy.com
-
-# Activate
-modus-memory activate <license-key>
-
-# Check status
-modus-memory status
-
-# Refresh (re-validates with server)
-modus-memory refresh
-```
-
-Free tier is fully functional for personal use. Pro unlocks the features that matter at scale: memory decay keeps your vault clean, cross-referencing surfaces connections you'd miss, and there's no document ceiling.
-
 ## Tools
 
-modus-memory exposes 11 MCP tools (8 free + 3 Pro):
+modus-memory exposes 11 MCP tools — all free, no limits:
 
-| Tool | Tier | Description |
-|------|------|-------------|
-| `vault_search` | Free | BM25 full-text search with librarian query expansion and cross-reference hints |
-| `vault_read` | Free | Read any document by path |
-| `vault_write` | Free | Write a document with YAML frontmatter + markdown body |
-| `vault_list` | Free | List documents in a subdirectory with optional filters |
-| `vault_status` | Free | Vault statistics — document counts, index size, cross-ref stats |
-| `memory_facts` | Free | List memory facts, optionally filtered by subject |
-| `memory_search` | Free | Search memory facts with automatic FSRS reinforcement on recall |
-| `memory_store` | Free | Store a new memory fact (subject/predicate/value) |
-| `memory_reinforce` | **Pro** | Explicitly reinforce a memory — increases stability, decreases difficulty |
-| `memory_decay_facts` | **Pro** | Run FSRS decay sweep — naturally forgets stale memories |
-| `vault_connected` | **Pro** | Cross-reference query — find everything linked to a subject, tag, or entity |
+| Tool | Description |
+|------|-------------|
+| `vault_search` | BM25 full-text search with librarian query expansion and cross-reference hints |
+| `vault_read` | Read any document by path |
+| `vault_write` | Write a document with YAML frontmatter + markdown body |
+| `vault_list` | List documents in a subdirectory with optional filters |
+| `vault_status` | Vault statistics — document counts, index size, cross-ref stats |
+| `memory_facts` | List memory facts, optionally filtered by subject |
+| `memory_search` | Search memory facts with automatic FSRS reinforcement on recall |
+| `memory_store` | Store a new memory fact (subject/predicate/value) |
+| `memory_reinforce` | Explicitly reinforce a memory — increases stability, decreases difficulty |
+| `memory_decay_facts` | Run FSRS decay sweep — naturally forgets stale memories |
+| `vault_connected` | Cross-reference query — find everything linked to a subject, tag, or entity |
 
 ## How It Works
 

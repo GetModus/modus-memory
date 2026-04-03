@@ -1,4 +1,4 @@
-modus-memory
-modus-memory-*
+/modus-memory
+/modus-memory-*
 *.exe
 dist/
