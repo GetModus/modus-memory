@@ -55,6 +55,17 @@ Cloud memory services charge $19–249/month to store your personal data on thei
 | Close the window | Everything lost | Persisted to disk, searchable forever |
 | 6 months later | Stale memories clutter results | FSRS naturally fades noise, reinforces what matters |
 
+### Token savings
+
+Memory isn't just about remembering. It's a token reduction strategy.
+
+| Approach | Tokens per query | Cost at $3/1M tokens | Monthly (50 queries/day) |
+|----------|-----------------|----------------------|--------------------------|
+| Stuff 1K facts into context | ~36,000 | $0.109 | **$164** |
+| modus-memory search (top 10) | ~500 | $0.0015 | **$2.25** |
+
+**72x fewer input tokens.** Instead of cramming everything into the context window, modus-memory searches 19,000+ documents in <5ms and returns only what's relevant. FSRS decay keeps the vault clean so every token you send actually matters.
+
 ## Install
 
 ### Homebrew (macOS & Linux)
