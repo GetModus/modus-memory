@@ -272,6 +272,14 @@ Documents are connected by shared subjects, tags, and entities. A search for "au
 
 No graph database. Just adjacency maps built at index time from your existing frontmatter.
 
+### Multi-Agent / Shared Memory
+
+Multiple agents can share the same vault. Point Claude Desktop, Cursor, a CrewAI pipeline, and a cron job at the same `--vault` directory — they all read and write the same markdown files.
+
+Agent A stores a fact at 2pm. Agent B searches at 3pm and finds it. No setup, no message bus, no database. Just a shared directory.
+
+This makes modus-memory a persistent knowledge layer for multi-agent workflows. Agents build knowledge over days and weeks, not just within a single session. No cloud, no vendor lock-in — swap out any agent without losing what the others learned.
+
 ## Migrating from Khoj
 
 [Khoj](https://github.com/khoj-ai/khoj) cloud is shutting down. Import your data in one command:
