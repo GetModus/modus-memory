@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520">
+  <defs>
+    <linearGradient id="bgDemo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#161b22;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Window chrome -->
+  <rect width="800" height="520" fill="#1c2333" rx="12"/>
+  <rect x="0" y="0" width="800" height="36" fill="#161b22" rx="12"/>
+  <rect x="0" y="24" width="800" height="12" fill="#161b22"/>
+  <circle cx="20" cy="18" r="6" fill="#f85149" opacity="0.8"/>
+  <circle cx="40" cy="18" r="6" fill="#e3b341" opacity="0.8"/>
+  <circle cx="60" cy="18" r="6" fill="#7ee787" opacity="0.8"/>
+  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — modus-memory</text>
+
+  <!-- Terminal content -->
+  <g font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="13">
+
+    <!-- Install -->
+    <text x="20" y="60" fill="#8b949e">$ </text>
+    <text x="35" y="60" fill="#e6edf3">brew install GetModus/tap/modus-memory</text>
+    <text x="20" y="80" fill="#7ee787">&#x2713; modus-memory 0.3.0 installed</text>
+
+    <!-- Configure -->
+    <text x="20" y="110" fill="#8b949e">$ </text>
+    <text x="35" y="110" fill="#e6edf3">modus-memory health</text>
+    <text x="20" y="130" fill="#58a6ff">modus-memory 0.3.0</text>
+    <text x="20" y="148" fill="#8b949e">Vault:      ~/modus/vault</text>
+    <text x="20" y="166" fill="#8b949e">Documents:  1,847</text>
+    <text x="20" y="184" fill="#8b949e">Facts:      423 total, 419 active</text>
+    <text x="20" y="202" fill="#8b949e">Cross-refs: 156 subjects, 89 tags, 67 entities</text>
+
+    <!-- Separator -->
+    <text x="20" y="232" fill="#30363d">─────────────────────────────────────────────────────</text>
+
+    <!-- Claude conversation -->
+    <text x="20" y="258" fill="#bc8cff" font-weight="bold">Claude Desktop</text>
+
+    <text x="20" y="285" fill="#58a6ff">You:</text>
+    <text x="60" y="285" fill="#e6edf3">Remember that we chose Postgres over MySQL for the</text>
+    <text x="60" y="303" fill="#e6edf3">new billing service because of JSONB support.</text>
+
+    <text x="20" y="330" fill="#7ee787">Claude:</text>
+    <text x="75" y="330" fill="#8b949e">Stored. I'll remember that for future conversations.</text>
+
+    <text x="20" y="365" fill="#30363d">─── 3 weeks later, new chat ───</text>
+
+    <text x="20" y="392" fill="#58a6ff">You:</text>
+    <text x="60" y="392" fill="#e6edf3">What database should we use for the payments service?</text>
+
+    <text x="20" y="419" fill="#7ee787">Claude:</text>
+    <text x="75" y="419" fill="#8b949e">Based on your memory: you chose Postgres over MySQL</text>
+    <text x="75" y="437" fill="#8b949e">for the billing service specifically for JSONB support.</text>
+    <text x="75" y="455" fill="#8b949e">Since payments is closely related, Postgres would be</text>
+    <text x="75" y="473" fill="#8b949e">consistent. The JSONB column type is also useful for</text>
+    <text x="75" y="491" fill="#8b949e">storing flexible payment metadata.</text>
+
+    <!-- Search time badge -->
+    <rect x="600" y="400" width="180" height="24" rx="12" fill="#1a2332" stroke="#7ee787" stroke-width="1"/>
+    <text x="690" y="416" font-family="monospace" font-size="10" fill="#7ee787" text-anchor="middle">&#x26A1; searched in 0.3ms</text>
+  </g>
+</svg>

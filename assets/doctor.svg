@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380">
+  <!-- Window chrome -->
+  <rect width="800" height="380" fill="#1c2333" rx="12"/>
+  <rect x="0" y="0" width="800" height="36" fill="#161b22" rx="12"/>
+  <rect x="0" y="24" width="800" height="12" fill="#161b22"/>
+  <circle cx="20" cy="18" r="6" fill="#f85149" opacity="0.8"/>
+  <circle cx="40" cy="18" r="6" fill="#e3b341" opacity="0.8"/>
+  <circle cx="60" cy="18" r="6" fill="#7ee787" opacity="0.8"/>
+  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — modus-memory doctor</text>
+
+  <g font-family="'SF Mono', 'Fira Code', monospace" font-size="13">
+    <text x="20" y="60" fill="#8b949e">$ </text>
+    <text x="35" y="60" fill="#e6edf3">modus-memory doctor</text>
+
+    <text x="20" y="85" fill="#58a6ff">modus-memory doctor 0.3.0</text>
+    <text x="20" y="103" fill="#8b949e">Vault: /Users/you/modus/vault</text>
+
+    <text x="20" y="128" fill="#8b949e">Documents:  847</text>
+    <text x="20" y="146" fill="#8b949e">Facts:      234 total, 234 active, 0 archived</text>
+    <text x="20" y="164" fill="#8b949e">Cross-refs: 89 subjects, 45 tags, 67 entities</text>
+
+    <text x="20" y="194" fill="#e6edf3">&#x2500;&#x2500;&#x2500; Diagnostics &#x2500;&#x2500;&#x2500;</text>
+    <text x="20" y="214" fill="#e3b341">[WARN] 3 duplicate subject+predicate pairs</text>
+    <text x="20" y="232" fill="#e3b341">[WARN] 2 potential contradictions</text>
+    <text x="20" y="250" fill="#8b949e">[INFO] 12 documents with empty body</text>
+
+    <text x="20" y="278" fill="#e6edf3">&#x2500;&#x2500;&#x2500; Distribution &#x2500;&#x2500;&#x2500;</text>
+    <text x="20" y="298" fill="#8b949e">  brain/               423 docs</text>
+    <text x="20" y="316" fill="#8b949e">  memory/              234 docs</text>
+    <text x="20" y="334" fill="#8b949e">  atlas/               190 docs</text>
+
+    <text x="20" y="362" fill="#e3b341">2 warnings, 1 info. Run after cleanup to verify.</text>
+  </g>
+</svg>
