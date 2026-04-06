@@ -208,9 +208,30 @@ func FormatForPrompt(learnings []Learning) string {
 	return sb.String()
 }
 
+// safeLearningPath resolves a slug to a path within the learnings directory,
+// rejecting traversal attempts.
+func safeLearningPath(vaultDir, slug string) (string, error) {
+	dir := Dir(vaultDir)
+	abs, err := filepath.Abs(filepath.Join(dir, slug+".md"))
+	if err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
+	root, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("invalid learnings root: %w", err)
+	}
+	if !strings.HasPrefix(abs, root+string(os.PathSeparator)) && abs != root {
+		return "", fmt.Errorf("path traversal denied: %s", slug)
+	}
+	return abs, nil
+}
+
 // Reinforce bumps the reinforcement count for a learning.
 func Reinforce(vaultDir, slug string) error {
-	path := filepath.Join(Dir(vaultDir), slug+".md")
+	path, err := safeLearningPath(vaultDir, slug)
+	if err != nil {
+		return err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", slug, err)
@@ -234,7 +255,10 @@ func Reinforce(vaultDir, slug string) error {
 
 // Deprecate marks a learning as outdated by setting confidence to 0.
 func Deprecate(vaultDir, slug string) error {
-	path := filepath.Join(Dir(vaultDir), slug+".md")
+	path, err := safeLearningPath(vaultDir, slug)
+	if err != nil {
+		return err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", slug, err)

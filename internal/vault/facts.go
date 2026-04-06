@@ -369,7 +369,7 @@ func (v *Vault) StoreFact(subject, predicate, value string, confidence float64, 
 		"created":     "now",
 	}
 
-	if err := markdown.Write(path, fm, value); err != nil {
+	if err := v.Write(relPath, fm, value); err != nil {
 		return "", err
 	}
 	return relPath, nil
