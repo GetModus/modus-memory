@@ -6,6 +6,7 @@
   <a href="#demo"><strong>Demo</strong></a> ·
   <a href="#install"><strong>Install</strong></a> ·
   <a href="#quickstart"><strong>Quickstart</strong></a> ·
+  <a href="#the-librarian-pattern"><strong>Librarian</strong></a> ·
   <a href="#how-it-works"><strong>How It Works</strong></a> ·
   <a href="#security--privacy"><strong>Security</strong></a> ·
   <a href="#migrating-from-khoj"><strong>Khoj Migration</strong></a> ·
@@ -204,6 +205,32 @@ modus-memory exposes 11 MCP tools — all free, no limits:
 | `memory_reinforce` | Explicitly reinforce a memory — increases stability, decreases difficulty |
 | `memory_decay_facts` | Run FSRS decay sweep — naturally forgets stale memories |
 | `vault_connected` | Cross-reference query — find everything linked to a subject, tag, or entity |
+
+## The Librarian Pattern
+
+Most memory systems let any LLM read and write freely. modus-memory is designed around a different principle: a single dedicated local model — the **Librarian** — serves as the sole authority over persistent state.
+
+```
+┌─────────────┐     ┌────────────────┐     ┌──────────────┐
+│ Cloud Model  │◄───►│   Librarian    │◄───►│ modus-memory │
+│ (reasoning)  │     │ (local, ~8B)   │     │   (vault)    │
+└─────────────┘     └────────────────┘     └──────────────┘
+                     Sole write access
+                     Query expansion
+                     Relevance filtering
+                     Context compression
+```
+
+The cloud model stays focused on reasoning. The Librarian handles retrieval, filing, deduplication, decay, and context curation — then hands over only the 4-8k tokens that actually matter.
+
+- **Token discipline** — the Librarian compresses and reranks locally before anything touches the cloud. You pay for signal, not noise.
+- **Context hygiene** — the cloud model never sees duplicates, stale facts, or irrelevant memories.
+- **Privacy** — sensitive data stays on your machine. The Librarian decides what crosses the boundary.
+- **Consistency** — one model means consistent tagging, frontmatter, importance levels, and deduplication.
+
+Any small, instruction-following model works: Gemma 4, Qwen 3, Llama 3, Phi-4. It doesn't need to be smart. It needs to be reliable.
+
+**[Full guide: system prompt, model recommendations, example flows, and wiring patterns →](docs/librarian.md)**
 
 ## How It Works
 
