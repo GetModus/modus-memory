@@ -95,12 +95,12 @@ The Librarian doesn't need a frontier model. It needs a fast, reliable model tha
 
 | Model | Size | Notes |
 |-------|------|-------|
-| Gemma 4 | 12B-27B | Strong instruction following, multimodal, our default |
+| Gemma 4 | 12B-26B | Strong instruction following, multimodal, our default |
 | Qwen 3 | 8B-14B | Good structured output, fast |
 | Llama 3 | 8B | Solid baseline, widely available |
 | Phi-4 | 14B | Compact, good at structured tasks |
 
-We run ours on Gemma 4 27B via Ollama. Any model that can reliably produce YAML frontmatter and follow classification rules will work. Even a 7-8B model is fine — the Librarian's job is structured and repetitive, not creative.
+We run ours on Gemma 4 26B via Ollama. Any model that can reliably produce YAML frontmatter and follow classification rules will work. Even a 7-8B model is fine — the Librarian's job is structured and repetitive, not creative.
 
 ## Connecting to modus-memory
 
@@ -128,7 +128,7 @@ For tighter control, run the Librarian as a preprocessing step:
 ```bash
 # 1. Librarian retrieves relevant context
 echo "User is asking about React authentication patterns" | \
-  ollama run gemma4:27b --system "$(cat librarian-prompt.md)" \
+  ollama run gemma4:26b --system "$(cat librarian-prompt.md)" \
   "Search the vault for relevant context and return a compressed summary"
 
 # 2. Feed the Librarian's output into the cloud model as system context
@@ -141,7 +141,7 @@ In a multi-agent setup, the Librarian is one agent in the fleet with exclusive w
 ```yaml
 # Agent role definition
 name: librarian
-model: gemma4:27b
+model: gemma4:26b
 tools: [vault_search, vault_read, vault_write, vault_list, memory_store, memory_search]
 ```
 
