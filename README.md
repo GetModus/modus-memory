@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
-  <a href="#30-second-demo"><strong>Demo</strong></a> ·
+  <a href="#demo"><strong>Demo</strong></a> ·
   <a href="docs/reference/release-notes-v0.5.0-homing.md"><strong>Release Notes</strong></a> ·
   <a href="#attach-to-shells-harnesses-and-agents"><strong>Attach</strong></a> ·
   <a href="#why-the-name-changed"><strong>Name</strong></a> ·
@@ -42,7 +42,7 @@ Not a chat-history graveyard. Not a black-box memory tax. Homing keeps agent con
 
 For the release walkthrough, start with [`docs/reference/release-notes-v0.5.0-homing.md`](docs/reference/release-notes-v0.5.0-homing.md). For the implementation deep dive, see [`docs/reference/homing-memory-update-2026-04.md`](docs/reference/homing-memory-update-2026-04.md).
 
-## 30-Second Demo
+## Demo
 
 This is the core loop in practice: remember a decision, recall it through the right route later, and attach the result to a plain carrier that has no native memory tools of its own.
 
