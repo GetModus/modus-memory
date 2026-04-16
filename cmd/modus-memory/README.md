@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
+  <a href="#30-second-demo"><strong>Demo</strong></a> ·
   <a href="../../docs/reference/release-notes-v0.5.0-homing.md"><strong>Release Notes</strong></a> ·
   <a href="#attach-to-shells-harnesses-and-agents"><strong>Attach</strong></a> ·
   <a href="#why-the-name-changed"><strong>Name</strong></a> ·
@@ -40,6 +41,14 @@ Not a chat-history graveyard. Not a black-box memory tax. Homing keeps agent con
 > **Verified for this release line: a stripped Apple Silicon build is about 7.7 MB, storage remains plain markdown, and the runtime stays local-first.**
 
 For the release walkthrough, start with [`docs/reference/release-notes-v0.5.0-homing.md`](../../docs/reference/release-notes-v0.5.0-homing.md). For the implementation deep dive, see [`docs/reference/homing-memory-update-2026-04.md`](../../docs/reference/homing-memory-update-2026-04.md).
+
+## 30-Second Demo
+
+This is the core loop in practice: remember a decision, recall it through the right route later, and attach the result to a plain carrier that has no native memory tools of its own.
+
+<p align="center">
+  <img src="assets/demo.gif" alt="Homing demo showing remember, recall, and attach flow" width="900"/>
+</p>
 
 ## Why The Name Changed
 
@@ -455,9 +464,8 @@ The standalone `modus-memory` server now exposes **27 MCP tools**, all available
 
 Near-term work we expect to pursue next:
 
-- a short demo GIF or video showing the remember / recall / attach flow in practice
 - clearer end-to-end examples for shell attachment in real agent harnesses
-- optional hybrid semantic retrieval using local embeddings alongside BM25
+- optional hybrid retrieval that layers local embeddings on top of BM25 and route-aware narrowing, disabled by default
 - deeper portability and migration tooling for users leaving provider-owned memory
 
 The design discipline stays the same: local-first, inspectable, plain-file storage, and no unnecessary infrastructure burden.
@@ -523,6 +531,8 @@ Files live in `~/vault/` (configurable with `--vault` or `MODUS_VAULT_DIR`). Bac
 - **Librarian expansion** — synonyms and related terms broaden recall
 - **Route-aware narrowing** — retrieval can anchor by subject, mission, office, work item, lineage, environment, time band, and cue terms
 - **Recall receipts** — successful recall can write durable evidence of the query, adapter, selected paths, and linked surfaces
+
+Today Homing is intentionally lexical-first: BM25, route narrowing, and explicit evidence beat a blurrier black-box similarity stack for most local memory work. The next retrieval toggle we want is optional local embeddings layered on top of that foundation, not a replacement for it and not a new cloud dependency.
 
 ### Memory Decay (FSRS)
 
