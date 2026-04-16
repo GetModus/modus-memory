@@ -47,7 +47,7 @@ For the release walkthrough, start with [`docs/reference/release-notes-v0.5.0-ho
 This is the core loop in practice: remember a decision, recall it through the right route later, and attach the result to a plain carrier that has no native memory tools of its own.
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Homing demo showing remember, recall, and attach flow" width="900"/>
+  <img src="assets/demo.gif" alt="Homing demo showing remember, recall, and attach flow" width="820"/>
 </p>
 
 ## Why The Name Changed

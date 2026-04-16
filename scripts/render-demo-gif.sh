@@ -2,196 +2,288 @@
 
 set -euo pipefail
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "This renderer currently expects macOS Quick Look (qlmanage)." >&2
-  exit 1
-fi
-
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
-RENDER_DIR="${TMP_DIR}/rendered"
-mkdir -p "${RENDER_DIR}"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
-write_scene_01() {
-  cat >"${TMP_DIR}/scene-01.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
-  <rect width="1200" height="675" fill="#0b1020"/>
-  <rect x="36" y="28" width="1128" height="619" rx="18" fill="#121a2b" stroke="#263247" stroke-width="2"/>
-  <rect x="36" y="28" width="1128" height="46" rx="18" fill="#161b22"/>
-  <rect x="36" y="56" width="1128" height="18" fill="#161b22"/>
-  <circle cx="70" cy="51" r="6" fill="#ff5f57"/>
-  <circle cx="92" cy="51" r="6" fill="#febb2e"/>
-  <circle cx="114" cy="51" r="6" fill="#28c840"/>
-  <text x="530" y="56" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3" text-anchor="middle">Homing by MODUS</text>
-  <text x="953" y="56" font-family="monospace" font-size="14" fill="#7d8590" text-anchor="middle">remember • recall • attach</text>
+mkdir -p "${ROOT_DIR}/assets" "${ROOT_DIR}/cmd/modus-memory/assets"
 
-  <rect x="74" y="108" width="194" height="34" rx="17" fill="#13213a" stroke="#2f81f7" stroke-width="2"/>
-  <text x="171" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#58a6ff" text-anchor="middle">1. Remember</text>
-  <text x="302" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3">Natural-language capture becomes local memory.</text>
+export ROOT_DIR TMP_DIR
 
-  <rect x="94" y="182" width="1000" height="122" rx="16" fill="#111b30" stroke="#1f6feb" stroke-width="2"/>
-  <text x="122" y="215" font-family="monospace" font-size="26" fill="#58a6ff">You:</text>
-  <text x="122" y="251" font-family="monospace" font-size="24" fill="#e6edf3">Remember that we chose Postgres for billing</text>
-  <text x="122" y="286" font-family="monospace" font-size="24" fill="#e6edf3">because JSONB support mattered.</text>
+python3 <<'PY'
+import os
+from pathlib import Path
 
-  <rect x="94" y="332" width="1000" height="138" rx="16" fill="#12271d" stroke="#3fb950" stroke-width="2"/>
-  <text x="122" y="366" font-family="monospace" font-size="25" fill="#7ee787">Homing:</text>
-  <text x="122" y="401" font-family="monospace" font-size="22" fill="#e6edf3">Stored as durable memory with route cues:</text>
-  <text x="122" y="436" font-family="monospace" font-size="22" fill="#e6edf3">billing, postgres, jsonb, database-choice</text>
+from PIL import Image, ImageDraw, ImageFont
 
-  <rect x="94" y="498" width="1000" height="54" rx="12" fill="#0f172a" stroke="#7d8590" stroke-width="1"/>
-  <text x="122" y="530" font-family="monospace" font-size="18" fill="#8b949e">memory/facts/billing-service-database-choice.md</text>
-  <text x="707" y="530" font-family="monospace" font-size="18" fill="#8b949e">receipt: recall-2026-04-16-001.md</text>
+ROOT = Path(os.environ["ROOT_DIR"])
+TMP = Path(os.environ["TMP_DIR"])
 
-  <rect x="74" y="578" width="1050" height="40" rx="12" fill="#111827" stroke="#30363d" stroke-width="2"/>
-  <text x="599" y="603" font-family="monospace" font-size="16" fill="#8b949e" text-anchor="middle">sovereign memory kernel • plain markdown • one binary</text>
-</svg>
-EOF
-}
+WIDTH = 1280
+HEIGHT = 720
+WINDOW_X = 52
+WINDOW_Y = 36
+WINDOW_W = WIDTH - 104
+WINDOW_H = HEIGHT - 72
 
-write_scene_02() {
-  cat >"${TMP_DIR}/scene-02.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
-  <rect width="1200" height="675" fill="#0b1020"/>
-  <rect x="36" y="28" width="1128" height="619" rx="18" fill="#121a2b" stroke="#263247" stroke-width="2"/>
-  <rect x="36" y="28" width="1128" height="46" rx="18" fill="#161b22"/>
-  <rect x="36" y="56" width="1128" height="18" fill="#161b22"/>
-  <circle cx="70" cy="51" r="6" fill="#ff5f57"/>
-  <circle cx="92" cy="51" r="6" fill="#febb2e"/>
-  <circle cx="114" cy="51" r="6" fill="#28c840"/>
-  <text x="530" y="56" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3" text-anchor="middle">Homing by MODUS</text>
-  <text x="953" y="56" font-family="monospace" font-size="14" fill="#7d8590" text-anchor="middle">remember • recall • attach</text>
+BG = "#0b1020"
+WINDOW = "#121a2b"
+HEADER = "#161b22"
+BORDER = "#263247"
+TEXT = "#e6edf3"
+MUTED = "#8b949e"
+BLUE = "#58a6ff"
+BLUE_FILL = "#111b30"
+GREEN = "#7ee787"
+GREEN_FILL = "#12271d"
+SLATE_FILL = "#0f172a"
+SLATE = "#7d8590"
+FOOT_FILL = "#111827"
 
-  <rect x="74" y="108" width="160" height="34" rx="17" fill="#13213a" stroke="#2f81f7" stroke-width="2"/>
-  <text x="154" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#58a6ff" text-anchor="middle">2. Recall</text>
-  <text x="262" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3">Route-aware retrieval narrows before ranking.</text>
+FONT_UI = "/System/Library/Fonts/SFNS.ttf"
+FONT_MONO = "/System/Library/Fonts/SFNSMono.ttf"
 
-  <rect x="94" y="184" width="1000" height="92" rx="16" fill="#111b30" stroke="#1f6feb" stroke-width="2"/>
-  <text x="122" y="218" font-family="monospace" font-size="26" fill="#58a6ff">You:</text>
-  <text x="122" y="254" font-family="monospace" font-size="24" fill="#e6edf3">What database should we use for payments?</text>
+font_ui_title = ImageFont.truetype(FONT_UI, 24)
+font_ui_copy = ImageFont.truetype(FONT_UI, 22)
+font_ui_pill = ImageFont.truetype(FONT_UI, 20)
+font_mono_body = ImageFont.truetype(FONT_MONO, 24)
+font_mono_small = ImageFont.truetype(FONT_MONO, 18)
+font_mono_tiny = ImageFont.truetype(FONT_MONO, 16)
 
-  <rect x="94" y="302" width="1000" height="168" rx="16" fill="#12271d" stroke="#3fb950" stroke-width="2"/>
-  <text x="122" y="336" font-family="monospace" font-size="25" fill="#7ee787">Homing:</text>
-  <text x="122" y="371" font-family="monospace" font-size="22" fill="#e6edf3">Recalled the billing decision through related-service cues.</text>
-  <text x="122" y="406" font-family="monospace" font-size="22" fill="#e6edf3">Recommendation: Postgres is the consistent choice.</text>
-  <text x="122" y="441" font-family="monospace" font-size="22" fill="#e6edf3">JSONB still fits flexible payment metadata.</text>
 
-  <rect x="94" y="496" width="1000" height="54" rx="12" fill="#0f172a" stroke="#7d8590" stroke-width="1"/>
-  <text x="122" y="530" font-family="monospace" font-size="18" fill="#8b949e">route: service-family → billing → database-decision</text>
-  <text x="734" y="530" font-family="monospace" font-size="18" fill="#8b949e">sources: 3 linked artifacts</text>
+def rr(draw, xy, radius, fill, outline=None, width=1):
+    draw.rounded_rectangle(xy, radius=radius, fill=fill, outline=outline, width=width)
 
-  <rect x="74" y="578" width="1050" height="40" rx="12" fill="#111827" stroke="#30363d" stroke-width="2"/>
-  <text x="599" y="603" font-family="monospace" font-size="16" fill="#8b949e" text-anchor="middle">sovereign memory kernel • plain markdown • one binary</text>
-</svg>
-EOF
-}
 
-write_scene_03() {
-  cat >"${TMP_DIR}/scene-03.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
-  <rect width="1200" height="675" fill="#0b1020"/>
-  <rect x="36" y="28" width="1128" height="619" rx="18" fill="#121a2b" stroke="#263247" stroke-width="2"/>
-  <rect x="36" y="28" width="1128" height="46" rx="18" fill="#161b22"/>
-  <rect x="36" y="56" width="1128" height="18" fill="#161b22"/>
-  <circle cx="70" cy="51" r="6" fill="#ff5f57"/>
-  <circle cx="92" cy="51" r="6" fill="#febb2e"/>
-  <circle cx="114" cy="51" r="6" fill="#28c840"/>
-  <text x="530" y="56" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3" text-anchor="middle">Homing by MODUS</text>
-  <text x="953" y="56" font-family="monospace" font-size="14" fill="#7d8590" text-anchor="middle">remember • recall • attach</text>
+def text(draw, xy, value, font, fill, anchor="la"):
+    draw.text(xy, value, font=font, fill=fill, anchor=anchor)
 
-  <rect x="74" y="108" width="154" height="34" rx="17" fill="#13213a" stroke="#2f81f7" stroke-width="2"/>
-  <text x="151" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#58a6ff" text-anchor="middle">3. Attach</text>
-  <text x="256" y="131" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3">Plain shells and harnesses can ride the same memory.</text>
 
-  <rect x="94" y="182" width="1000" height="98" rx="16" fill="#111b30" stroke="#1f6feb" stroke-width="2"/>
-  <text x="122" y="216" font-family="monospace" font-size="21" fill="#e6edf3">$ modus-memory attach --carrier codex</text>
-  <text x="122" y="246" font-family="monospace" font-size="21" fill="#e6edf3">  --prompt "What database should we use"</text>
-  <text x="122" y="274" font-family="monospace" font-size="21" fill="#e6edf3">  for payments?"</text>
+def lines(draw, x, y, items, font, fill, spacing=12):
+    current_y = y
+    for item in items:
+        draw.text((x, current_y), item, font=font, fill=fill)
+        bbox = draw.textbbox((x, current_y), item, font=font)
+        current_y = bbox[3] + spacing
 
-  <rect x="94" y="308" width="1000" height="220" rx="16" fill="#0f172a" stroke="#7ee787" stroke-width="2"/>
-  <text x="122" y="344" font-family="monospace" font-size="22" fill="#8b949e">[attach] recalled 3 memory artifacts</text>
-  <text x="122" y="378" font-family="monospace" font-size="22" fill="#8b949e">[attach] carrier: codex</text>
-  <text x="122" y="412" font-family="monospace" font-size="22" fill="#8b949e">[attach] wrote recall receipt and trace</text>
-  <text x="122" y="462" font-family="monospace" font-size="23" fill="#7ee787">Codex:</text>
-  <text x="122" y="497" font-family="monospace" font-size="21" fill="#e6edf3">Use Postgres. Homing attached the earlier billing</text>
-  <text x="122" y="530" font-family="monospace" font-size="21" fill="#e6edf3">decision and its JSONB rationale before answering.</text>
 
-  <rect x="74" y="578" width="1050" height="40" rx="12" fill="#111827" stroke="#30363d" stroke-width="2"/>
-  <text x="599" y="603" font-family="monospace" font-size="16" fill="#8b949e" text-anchor="middle">sovereign memory kernel • plain markdown • one binary</text>
-</svg>
-EOF
-}
+def shell_box(draw, x1, y1, x2, y2, outline, fill):
+    rr(draw, (x1, y1, x2, y2), 16, fill, outline=outline, width=2)
 
-write_scene_04() {
-  cat >"${TMP_DIR}/scene-04.svg" <<'EOF'
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
-  <rect width="1200" height="675" fill="#0b1020"/>
-  <rect x="36" y="28" width="1128" height="619" rx="18" fill="#121a2b" stroke="#263247" stroke-width="2"/>
-  <rect x="36" y="28" width="1128" height="46" rx="18" fill="#161b22"/>
-  <rect x="36" y="56" width="1128" height="18" fill="#161b22"/>
-  <circle cx="70" cy="51" r="6" fill="#ff5f57"/>
-  <circle cx="92" cy="51" r="6" fill="#febb2e"/>
-  <circle cx="114" cy="51" r="6" fill="#28c840"/>
-  <text x="530" y="56" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#e6edf3" text-anchor="middle">Homing by MODUS</text>
-  <text x="953" y="56" font-family="monospace" font-size="14" fill="#7d8590" text-anchor="middle">remember • recall • attach</text>
 
-  <rect x="94" y="166" width="1000" height="310" rx="18" fill="#101828" stroke="#58a6ff" stroke-width="2"/>
-  <text x="180" y="238" font-family="system-ui, -apple-system, sans-serif" font-size="48" fill="#e6edf3">Same memory. Any agent.</text>
-  <text x="182" y="308" font-family="monospace" font-size="30" fill="#8b949e">Free for everyone.</text>
-  <text x="182" y="352" font-family="monospace" font-size="30" fill="#8b949e">Plain markdown on disk.</text>
-  <text x="182" y="396" font-family="monospace" font-size="30" fill="#8b949e">Route-aware recall, not cloud lock-in.</text>
+def common_scaffold(draw):
+    draw.rectangle((0, 0, WIDTH, HEIGHT), fill=BG)
+    rr(draw, (WINDOW_X, WINDOW_Y, WINDOW_X + WINDOW_W, WINDOW_Y + WINDOW_H), 20, WINDOW, outline=BORDER, width=2)
+    rr(draw, (WINDOW_X, WINDOW_Y, WINDOW_X + WINDOW_W, WINDOW_Y + 48), 20, HEADER)
+    draw.rectangle((WINDOW_X, WINDOW_Y + 24, WINDOW_X + WINDOW_W, WINDOW_Y + 48), fill=HEADER)
 
-  <rect x="182" y="430" width="160" height="42" rx="12" fill="#13213a"/>
-  <rect x="362" y="430" width="190" height="42" rx="12" fill="#13213a"/>
-  <rect x="572" y="430" width="196" height="42" rx="12" fill="#13213a"/>
-  <rect x="788" y="430" width="206" height="42" rx="12" fill="#13213a"/>
-  <text x="262" y="458" font-family="monospace" font-size="21" fill="#7ee787" text-anchor="middle">free for everyone</text>
-  <text x="457" y="458" font-family="monospace" font-size="21" fill="#58a6ff" text-anchor="middle">27 tools</text>
-  <text x="670" y="458" font-family="monospace" font-size="21" fill="#bc8cff" text-anchor="middle">shell attach</text>
-  <text x="891" y="458" font-family="monospace" font-size="21" fill="#e6edf3" text-anchor="middle">plain markdown</text>
+    for cx, color in [(92, "#ff5f57"), (120, "#febb2e"), (148, "#28c840")]:
+        draw.ellipse((cx - 7, 53 - 7, cx + 7, 53 + 7), fill=color)
 
-  <rect x="74" y="578" width="1050" height="40" rx="12" fill="#111827" stroke="#30363d" stroke-width="2"/>
-  <text x="599" y="603" font-family="monospace" font-size="16" fill="#8b949e" text-anchor="middle">sovereign memory kernel • plain markdown • one binary</text>
-</svg>
-EOF
-}
+    text(draw, (WIDTH / 2, 54), "Homing by MODUS", font_ui_title, TEXT, anchor="mm")
+    text(draw, (WINDOW_X + WINDOW_W - 210, 54), "remember • recall • attach", font_mono_tiny, SLATE, anchor="mm")
 
-render_scene() {
-  local scene_name="$1"
-  qlmanage -t -s 1200 -o "${RENDER_DIR}" "${TMP_DIR}/${scene_name}.svg" >/dev/null 2>&1
-  ffmpeg -loglevel error -y \
-    -i "${RENDER_DIR}/${scene_name}.svg.png" \
-    -vf "crop=iw:iw*9/16:0:0" \
-    "${RENDER_DIR}/${scene_name}.png"
-  rm -f "${RENDER_DIR}/${scene_name}.svg.png"
-}
+    rr(draw, (92, 620, WIDTH - 92, 660), 12, FOOT_FILL, outline="#30363d", width=2)
+    text(draw, (WIDTH / 2, 640), "sovereign memory kernel • plain markdown • one binary", font_mono_tiny, MUTED, anchor="mm")
 
-write_scene_01
-write_scene_02
-write_scene_03
-write_scene_04
 
-render_scene scene-01
-render_scene scene-02
-render_scene scene-03
-render_scene scene-04
+def pill(draw, label, copy):
+    rr(draw, (92, 112, 302, 148), 18, "#13213a", outline="#2f81f7", width=2)
+    text(draw, (197, 130), label, font_ui_pill, BLUE, anchor="mm")
+    text(draw, (340, 130), copy, font_ui_copy, TEXT)
+
+
+def scene_01(path):
+    image = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    draw = ImageDraw.Draw(image)
+    common_scaffold(draw)
+    pill(draw, "1. Remember", "Natural-language capture becomes local memory.")
+
+    shell_box(draw, 116, 186, WIDTH - 116, 336, BLUE, BLUE_FILL)
+    text(draw, (148, 220), "You:", font_mono_body, BLUE)
+    lines(
+        draw,
+        148,
+        258,
+        [
+            "Remember that we chose Postgres for billing",
+            "because JSONB support mattered.",
+        ],
+        font_mono_body,
+        TEXT,
+        spacing=10,
+    )
+
+    shell_box(draw, 116, 366, WIDTH - 116, 518, GREEN, GREEN_FILL)
+    text(draw, (148, 384), "Homing:", font_mono_body, GREEN)
+    lines(
+        draw,
+        148,
+        442,
+        [
+            "Stored as durable memory with route cues:",
+            "billing, postgres, jsonb, database-choice",
+        ],
+        font_mono_body,
+        TEXT,
+        spacing=10,
+    )
+
+    rr(draw, (116, 536, WIDTH - 116, 588), 12, SLATE_FILL, outline=SLATE, width=1)
+    text(draw, (148, 555), "memory/facts/billing-service-database-choice.md", font_mono_small, MUTED)
+    text(draw, (WIDTH - 148, 555), "receipt: recall-2026-04-16-001.md", font_mono_small, MUTED, anchor="ra")
+
+    image.save(path)
+
+
+def scene_02(path):
+    image = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    draw = ImageDraw.Draw(image)
+    common_scaffold(draw)
+    pill(draw, "2. Recall", "Route-aware retrieval narrows before ranking.")
+
+    shell_box(draw, 116, 188, WIDTH - 116, 286, BLUE, BLUE_FILL)
+    text(draw, (148, 224), "You:", font_mono_body, BLUE)
+    lines(
+        draw,
+        148,
+        258,
+        ["What database should we use for payments?"],
+        font_mono_body,
+        TEXT,
+        spacing=10,
+    )
+
+    shell_box(draw, 116, 316, WIDTH - 116, 502, GREEN, GREEN_FILL)
+    text(draw, (148, 352), "Homing:", font_mono_body, GREEN)
+    lines(
+        draw,
+        148,
+        394,
+        [
+            "Recalled the billing decision through related-service cues.",
+            "Recommendation: Postgres is the consistent choice.",
+            "JSONB still fits flexible payment metadata.",
+        ],
+        font_mono_small,
+        TEXT,
+        spacing=10,
+    )
+
+    rr(draw, (116, 528, WIDTH - 116, 580), 12, SLATE_FILL, outline=SLATE, width=1)
+    text(draw, (148, 547), "route: service-family -> billing -> database-choice", font_mono_small, MUTED)
+    text(draw, (WIDTH - 148, 547), "sources: 3 linked artifacts", font_mono_small, MUTED, anchor="ra")
+
+    image.save(path)
+
+
+def scene_03(path):
+    image = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    draw = ImageDraw.Draw(image)
+    common_scaffold(draw)
+    pill(draw, "3. Attach", "Plain shells and harnesses can ride the same memory.")
+
+    shell_box(draw, 116, 188, WIDTH - 116, 316, BLUE, BLUE_FILL)
+    lines(
+        draw,
+        148,
+        224,
+        [
+            "$ modus-memory attach --carrier codex",
+            '  --prompt "What database should we use for payments?"',
+        ],
+        font_mono_body,
+        TEXT,
+        spacing=10,
+    )
+
+    shell_box(draw, 116, 346, WIDTH - 116, 592, GREEN, BLUE_FILL)
+    lines(
+        draw,
+        148,
+        382,
+        [
+            "[attach] recalled 3 memory artifacts",
+            "[attach] carrier: codex",
+            "[attach] wrote recall receipt and trace",
+            "",
+        ],
+        font_mono_body,
+        MUTED,
+        spacing=10,
+    )
+    text(draw, (148, 504), "Codex:", font_mono_body, GREEN)
+    lines(
+        draw,
+        148,
+        540,
+        [
+            "Use Postgres. Homing attached the earlier billing",
+            "decision and its JSONB rationale before answering.",
+        ],
+        font_mono_small,
+        TEXT,
+        spacing=8,
+    )
+
+    image.save(path)
+
+
+def scene_04(path):
+    image = Image.new("RGB", (WIDTH, HEIGHT), BG)
+    draw = ImageDraw.Draw(image)
+    common_scaffold(draw)
+
+    rr(draw, (116, 172, WIDTH - 116, 540), 18, "#101828", outline=BLUE, width=2)
+    text(draw, (200, 244), "Same memory. Any agent.", ImageFont.truetype(FONT_UI, 48), TEXT)
+    lines(
+        draw,
+        202,
+        308,
+        [
+            "Free for everyone.",
+            "Plain markdown on disk.",
+            "Route-aware recall, not cloud lock-in.",
+        ],
+        ImageFont.truetype(FONT_MONO, 30),
+        MUTED,
+        spacing=12,
+    )
+
+    chips = [
+        ("free for everyone", GREEN, 202, 446, 210),
+        ("27 tools", BLUE, 438, 446, 150),
+        ("shell attach", "#bc8cff", 612, 446, 170),
+        ("plain markdown", TEXT, 806, 446, 200),
+    ]
+    for label, color, x, y, width in chips:
+        rr(draw, (x, y, x + width, y + 44), 12, "#13213a")
+        text(draw, (x + width / 2, y + 24), label, font_mono_small, color, anchor="mm")
+
+    image.save(path)
+
+
+scene_01(TMP / "frame-01.png")
+scene_02(TMP / "frame-02.png")
+scene_03(TMP / "frame-03.png")
+scene_04(TMP / "frame-04.png")
+PY
 
 cat >"${TMP_DIR}/frames.txt" <<EOF
-file '${RENDER_DIR}/scene-01.png'
+file '${TMP_DIR}/frame-01.png'
 duration 4
-file '${RENDER_DIR}/scene-02.png'
+file '${TMP_DIR}/frame-02.png'
 duration 4
-file '${RENDER_DIR}/scene-03.png'
+file '${TMP_DIR}/frame-03.png'
 duration 4
-file '${RENDER_DIR}/scene-04.png'
+file '${TMP_DIR}/frame-04.png'
 duration 4
-file '${RENDER_DIR}/scene-04.png'
+file '${TMP_DIR}/frame-04.png'
 EOF
 
 ffmpeg -loglevel error -y \
   -f concat -safe 0 -i "${TMP_DIR}/frames.txt" \
-  -vf "fps=6,scale=900:-1:flags=lanczos,split[s0][s1];[s0]palettegen=reserve_transparent=0[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3" \
+  -vf "fps=6,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=reserve_transparent=0[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3" \
   -loop 0 \
   "${ROOT_DIR}/assets/demo.gif"
 
