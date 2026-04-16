@@ -78,21 +78,96 @@ func (d *Document) Save() error {
 // WikiLinks extracts all [[link]] references from the body.
 func (d *Document) WikiLinks() []string {
 	var links []string
-	start := 0
-	for {
-		i := strings.Index(d.Body[start:], "[[")
-		if i < 0 {
-			break
+	walkWikiLinks(d.Body, func(raw string) {
+		link := normalizeWikiLink(raw)
+		if link != "" {
+			links = append(links, link)
 		}
-		j := strings.Index(d.Body[start+i:], "]]")
-		if j < 0 {
-			break
-		}
-		link := d.Body[start+i+2 : start+i+j]
-		links = append(links, link)
-		start = start + i + j + 2
-	}
+	})
 	return links
+}
+
+func normalizeWikiLink(raw string) string {
+	link := strings.TrimSpace(raw)
+	if link == "" {
+		return ""
+	}
+	if pipe := strings.Index(link, "|"); pipe >= 0 {
+		link = strings.TrimSpace(link[:pipe])
+	}
+	if anchor := strings.Index(link, "#"); anchor >= 0 {
+		link = strings.TrimSpace(link[:anchor])
+	}
+	return link
+}
+
+func walkWikiLinks(body string, fn func(raw string)) {
+	inInlineCode := false
+	inFence := false
+	fenceMarker := ""
+	lineStart := true
+
+	for i := 0; i < len(body); {
+		if lineStart && !inInlineCode {
+			if strings.HasPrefix(body[i:], "```") {
+				if inFence && fenceMarker == "```" {
+					inFence = false
+					fenceMarker = ""
+				} else if !inFence {
+					inFence = true
+					fenceMarker = "```"
+				}
+				i += 3
+				lineStart = false
+				continue
+			}
+			if strings.HasPrefix(body[i:], "~~~") {
+				if inFence && fenceMarker == "~~~" {
+					inFence = false
+					fenceMarker = ""
+				} else if !inFence {
+					inFence = true
+					fenceMarker = "~~~"
+				}
+				i += 3
+				lineStart = false
+				continue
+			}
+		}
+
+		if body[i] == '\n' {
+			lineStart = true
+			i++
+			continue
+		}
+
+		if inFence {
+			lineStart = false
+			i++
+			continue
+		}
+
+		if body[i] == '`' {
+			inInlineCode = !inInlineCode
+			lineStart = false
+			i++
+			continue
+		}
+
+		if !inInlineCode && strings.HasPrefix(body[i:], "[[") {
+			close := strings.Index(body[i+2:], "]]")
+			if close < 0 {
+				return
+			}
+			fn(body[i+2 : i+2+close])
+			i += close + 4
+			lineStart = false
+			continue
+		}
+
+		lineStart = false
+		i++
+	}
 }
 
 // Parse reads a markdown file and returns a Document.

@@ -1,35 +1,50 @@
-// Package librarian provides the gateway between MODUS and the local LLM
-// (Gemma 4 on llama-server). All vault search, triage, extraction, and
-// enrichment routes through here. Cloud models never touch raw DB.
+// Package librarian provides a local-first context shaping layer for AI
+// systems. It can sit between raw text and downstream tools or models to
+// expand weak queries, rerank results, summarize context, extract structured
+// facts, and produce briefings.
 package librarian
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
+	"os"
 	"strings"
-	"time"
 )
 
-// Endpoint is the librarian's address. Gemma 4 Q4_K_M via llama-server.
-const Endpoint = "http://127.0.0.1:8090"
+const (
+	// Endpoint is the default HTTP backend address.
+	Endpoint = "http://127.0.0.1:8090"
 
-// Available checks whether the librarian is reachable.
-func Available() bool {
-	client := &http.Client{Timeout: 2 * time.Second}
-	resp, err := client.Get(Endpoint + "/health")
-	if err != nil {
-		// llama-server uses /health; fall back to /v1/models for MLX compat
-		resp, err = client.Get(Endpoint + "/v1/models")
-		if err != nil {
-			return false
-		}
+	// EndpointEnv is the neutral public environment variable for the HTTP backend.
+	EndpointEnv = "LIBRARIAN_ENDPOINT"
+
+	// ModusEndpointEnv is the compatibility alias used by existing MODUS flows.
+	ModusEndpointEnv = "MODUS_LIBRARIAN_URL"
+)
+
+// ResolveEndpoint returns the effective HTTP endpoint for the Librarian.
+// Precedence:
+// 1. MODUS_LIBRARIAN_URL (compatibility alias)
+// 2. LIBRARIAN_ENDPOINT
+// 3. Endpoint constant default
+func ResolveEndpoint() string {
+	if v := strings.TrimSpace(os.Getenv(ModusEndpointEnv)); v != "" {
+		return v
 	}
-	resp.Body.Close()
-	return resp.StatusCode == 200
+	if v := strings.TrimSpace(os.Getenv(EndpointEnv)); v != "" {
+		return v
+	}
+	return Endpoint
+}
+
+// Available checks whether any backend is reachable.
+func Available() bool {
+	if defaultBackend != nil {
+		return defaultBackend.Available()
+	}
+	// Compatibility fallback: try HTTP if no explicit backend has been set.
+	return NewHTTPBackend(ResolveEndpoint()).Available()
 }
 
 // Call sends a system+user prompt to the librarian and returns the text response.
@@ -39,46 +54,18 @@ func Call(system, user string, maxTokens int) string {
 
 // CallWithTemp sends a prompt with a custom temperature.
 func CallWithTemp(system, user string, maxTokens int, temperature float64) string {
-	reqBody := map[string]interface{}{
-		"messages": []map[string]string{
-			{"role": "system", "content": system},
-			{"role": "user", "content": user},
-		},
-		"max_tokens":           maxTokens,
-		"temperature":          temperature,
-		"chat_template_kwargs": map[string]interface{}{"enable_thinking": false},
+	backend := defaultBackend
+	if backend == nil {
+		// Compatibility fallback: direct HTTP if no explicit backend has been set.
+		backend = NewHTTPBackend(ResolveEndpoint())
 	}
 
-	jsonBody, _ := json.Marshal(reqBody)
-	client := &http.Client{Timeout: 120 * time.Second}
-
-	resp, err := client.Post(
-		Endpoint+"/v1/chat/completions",
-		"application/json",
-		bytes.NewReader(jsonBody),
-	)
+	result, err := backend.Complete(system, user, maxTokens, temperature)
 	if err != nil {
 		log.Printf("librarian: call failed: %v", err)
 		return ""
 	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.Unmarshal(body, &result); err != nil || len(result.Choices) == 0 {
-		log.Printf("librarian: parse failed: %v (body: %s)", err, truncate(string(body), 200))
-		return ""
-	}
-
-	return strings.TrimSpace(result.Choices[0].Message.Content)
+	return result
 }
 
 // StripFences removes markdown code fences and LLM stop tokens from output.

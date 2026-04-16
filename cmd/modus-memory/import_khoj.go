@@ -68,13 +68,7 @@ func runImportKhoj(exportPath, vaultDir string) {
 
 	convCount := 0
 	factCount := 0
-	entityCount := 0
 	seenContexts := make(map[string]bool)
-	seenEntities := make(map[string]bool)
-
-	// Ensure entity directory
-	entityDir := filepath.Join(vaultDir, "atlas", "entities")
-	os.MkdirAll(entityDir, 0755)
 
 	for _, conv := range conversations {
 		if len(conv.ChatLog.Chat) == 0 {
@@ -134,43 +128,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 		}
 		convCount++
 
-		// Extract entities from conversation title and user messages
-		titleEnts := extractTitleEntities(conv.Title, 5)
-		for _, msg := range conv.ChatLog.Chat {
-			if msg.By == "user" {
-				text := messageText(msg.Message)
-				if text != "" {
-					titleEnts = append(titleEnts, extractTitleEntities(text, 3)...)
-				}
-			}
-		}
-		for _, ent := range titleEnts {
-			lower := strings.ToLower(ent)
-			if seenEntities[lower] {
-				continue
-			}
-			seenEntities[lower] = true
-
-			entSlug := slugify(ent)
-			if entSlug == "" {
-				continue
-			}
-			entPath := filepath.Join(entityDir, entSlug+".md")
-			if _, err := os.Stat(entPath); err == nil {
-				continue // already exists
-			}
-
-			entFM := map[string]interface{}{
-				"name":   ent,
-				"type":   "topic",
-				"source": "khoj-import",
-			}
-			if err := writeMarkdown(entPath, entFM, fmt.Sprintf("Entity extracted from Khoj conversation: %s\n", conv.Title)); err != nil {
-				continue
-			}
-			entityCount++
-		}
-
 		// Extract unique context references as memory facts
 		for _, msg := range conv.ChatLog.Chat {
 			for _, ctx := range msg.Context {
@@ -229,7 +186,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 
 	fmt.Printf("Imported: %d conversations → brain/khoj/\n", convCount)
 	fmt.Printf("Extracted: %d context facts → memory/facts/\n", factCount)
-	fmt.Printf("Extracted: %d entities → atlas/entities/\n", entityCount)
 	fmt.Printf("Skipped: %d conversations (already imported or empty)\n", len(conversations)-convCount)
 }
 

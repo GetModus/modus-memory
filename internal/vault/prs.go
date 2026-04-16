@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/GetModus/modus-memory/internal/ledger"
 	"github.com/GetModus/modus-memory/internal/markdown"
+	"github.com/GetModus/modus-memory/internal/signature"
+	"github.com/GetModus/modus-memory/internal/trust"
 )
 
 // OpenPR creates a new PR (evolution proposal) in vault/atlas/prs/.
@@ -27,14 +30,14 @@ func (v *Vault) OpenPR(title, openedBy, targetType, targetID string,
 	now := time.Now().Format(time.RFC3339)
 
 	fm := map[string]interface{}{
-		"title":              title,
-		"opened_by":          openedBy,
-		"status":             "open",
-		"opened_at":          now,
-		"target_type":        targetType,
-		"target_id":          targetID,
-		"confidence":         confidence,
-		"linked_belief_ids":  linkedBeliefIDs,
+		"title":             title,
+		"opened_by":         openedBy,
+		"status":            "open",
+		"opened_at":         now,
+		"target_type":       targetType,
+		"target_id":         targetID,
+		"confidence":        confidence,
+		"linked_belief_ids": linkedBeliefIDs,
 	}
 
 	body := fmt.Sprintf("# %s\n\n## Reasoning\n\n%s\n", title, reasoning)
@@ -49,6 +52,21 @@ func (v *Vault) OpenPR(title, openedBy, targetType, targetID string,
 // MergePR marks a PR as merged and reinforces all linked beliefs.
 // Only the operator should call this — MODUS never closes its own PRs.
 func (v *Vault) MergePR(relPath, closedBy string) error {
+	decision, stage, err := trust.ClassifyAtCurrentStage(v.Dir, trust.Request{
+		ProducingOffice:    "review_office",
+		ProducingSubsystem: "atlas_prs",
+		ActionClass:        trust.ActionOperationalMutation,
+		TargetDomain:       relPath,
+		TouchedState:       []trust.StateClass{trust.StateEvidentiary, trust.StateKnowledge},
+		RequestedAuthority: ledger.ScopeOperatorPRMerge,
+	})
+	if err != nil {
+		return err
+	}
+	if !trust.Permits(decision, true) {
+		return fmt.Errorf("PR merge blocked by trust gate: %s", decision.Reason)
+	}
+
 	doc, err := v.Read(relPath)
 	if err != nil {
 		return fmt.Errorf("read PR: %w", err)
@@ -75,11 +93,54 @@ func (v *Vault) MergePR(relPath, closedBy string) error {
 		}
 	}
 
+	_ = ledger.Append(v.Dir, ledger.Record{
+		Office:         "review_office",
+		Subsystem:      "atlas_prs",
+		AuthorityScope: ledger.ScopeOperatorPRMerge,
+		ActionClass:    ledger.ActionPromotionMerge,
+		TargetDomain:   relPath,
+		ResultStatus:   ledger.ResultApplied,
+		Decision:       ledger.DecisionApproved,
+		SideEffects:    []string{"pr_merged", "beliefs_reinforced"},
+		ProofRefs:      []string{relPath},
+		Signature: signature.Signature{
+			ProducingOffice:    "review_office",
+			ProducingSubsystem: "atlas_prs",
+			StaffingContext:    closedBy,
+			AuthorityScope:     ledger.ScopeOperatorPRMerge,
+			ArtifactState:      "evidentiary",
+			SourceRefs:         []string{relPath},
+			PromotionStatus:    "approved",
+			ProofRef:           "pr-merge:" + relPath,
+		},
+		Metadata: map[string]interface{}{
+			"classifier_stage":  stage,
+			"closed_by":         closedBy,
+			"linked_belief_ids": linkedIDs,
+			"trust_decision":    string(decision.Decision),
+		},
+	})
+
 	return nil
 }
 
 // RejectPR marks a PR as rejected and weakens all linked beliefs.
 func (v *Vault) RejectPR(relPath, closedBy, reason string) error {
+	decision, stage, err := trust.ClassifyAtCurrentStage(v.Dir, trust.Request{
+		ProducingOffice:    "review_office",
+		ProducingSubsystem: "atlas_prs",
+		ActionClass:        trust.ActionOperationalMutation,
+		TargetDomain:       relPath,
+		TouchedState:       []trust.StateClass{trust.StateEvidentiary, trust.StateKnowledge},
+		RequestedAuthority: ledger.ScopeOperatorPRReject,
+	})
+	if err != nil {
+		return err
+	}
+	if !trust.Permits(decision, true) {
+		return fmt.Errorf("PR rejection blocked by trust gate: %s", decision.Reason)
+	}
+
 	doc, err := v.Read(relPath)
 	if err != nil {
 		return fmt.Errorf("read PR: %w", err)
@@ -106,6 +167,35 @@ func (v *Vault) RejectPR(relPath, closedBy, reason string) error {
 			v.WeakenBelief(id)
 		}
 	}
+
+	_ = ledger.Append(v.Dir, ledger.Record{
+		Office:         "review_office",
+		Subsystem:      "atlas_prs",
+		AuthorityScope: ledger.ScopeOperatorPRReject,
+		ActionClass:    ledger.ActionPromotionRejection,
+		TargetDomain:   relPath,
+		ResultStatus:   ledger.ResultApplied,
+		Decision:       ledger.DecisionApproved,
+		SideEffects:    []string{"pr_rejected", "beliefs_weakened"},
+		ProofRefs:      []string{relPath},
+		Signature: signature.Signature{
+			ProducingOffice:    "review_office",
+			ProducingSubsystem: "atlas_prs",
+			StaffingContext:    closedBy,
+			AuthorityScope:     ledger.ScopeOperatorPRReject,
+			ArtifactState:      "evidentiary",
+			SourceRefs:         []string{relPath},
+			PromotionStatus:    "approved",
+			ProofRef:           "pr-reject:" + relPath,
+		},
+		Metadata: map[string]interface{}{
+			"classifier_stage":  stage,
+			"closed_by":         closedBy,
+			"rejection_reason":  reason,
+			"linked_belief_ids": linkedIDs,
+			"trust_decision":    string(decision.Decision),
+		},
+	})
 
 	return nil
 }

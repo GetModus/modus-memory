@@ -106,7 +106,7 @@ func RegisterLearningsTools(srv *Server, v *vault.Vault) {
 			"domain":       map[string]interface{}{"type": "string", "description": "Domain: search, triage, code, ingestion, architecture, operations, general"},
 			"type":         map[string]interface{}{"type": "string", "description": "Type: mistake, pattern, decision, correction"},
 			"severity":     map[string]interface{}{"type": "string", "description": "Severity: critical, high, medium, low"},
-			"learned_from": map[string]interface{}{"type": "string", "description": "Which model or source discovered this (e.g. claude-opus-4, gemma-4, general)"},
+			"learned_from": map[string]interface{}{"type": "string", "description": "Which model or source discovered this (e.g. gpt-5.4, gemma-4, general)"},
 			"body":         map[string]interface{}{"type": "string", "description": "Full content. Use sections: ## What happened, ## Learning, ## Apply when"},
 		},
 		func(args map[string]interface{}) (string, error) {

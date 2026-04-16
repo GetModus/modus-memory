@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Write creates a markdown file with YAML frontmatter.
@@ -25,11 +27,20 @@ func Write(path string, frontmatter map[string]interface{}, body string) error {
 		case []string:
 			sb.WriteString(fmt.Sprintf("%s: [%s]\n", key, strings.Join(v, ", ")))
 		case []interface{}:
-			parts := make([]string, len(v))
-			for i, item := range v {
-				parts[i] = fmt.Sprintf("%v", item)
+			if hasNestedMaps(v) {
+				// Use yaml.Marshal for complex nested structures (e.g. dependencies)
+				nested := map[string]interface{}{key: v}
+				yamlBytes, err := yaml.Marshal(nested)
+				if err == nil {
+					sb.Write(yamlBytes)
+				}
+			} else {
+				parts := make([]string, len(v))
+				for i, item := range v {
+					parts[i] = fmt.Sprintf("%v", item)
+				}
+				sb.WriteString(fmt.Sprintf("%s: [%s]\n", key, strings.Join(parts, ", ")))
 			}
-			sb.WriteString(fmt.Sprintf("%s: [%s]\n", key, strings.Join(parts, ", ")))
 		case bool:
 			sb.WriteString(fmt.Sprintf("%s: %v\n", key, v))
 		case float64, int:
@@ -49,6 +60,16 @@ func Write(path string, frontmatter map[string]interface{}, body string) error {
 	sb.WriteByte('\n')
 
 	return os.WriteFile(path, []byte(sb.String()), 0644)
+}
+
+// hasNestedMaps returns true if any element in the slice is a map.
+func hasNestedMaps(items []interface{}) bool {
+	for _, item := range items {
+		if _, ok := item.(map[string]interface{}); ok {
+			return true
+		}
+	}
+	return false
 }
 
 func needsQuoting(s string) bool {

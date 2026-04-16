@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/GetModus/modus-memory/internal/ledger"
+	"github.com/GetModus/modus-memory/internal/signature"
+	"github.com/GetModus/modus-memory/internal/trust"
 )
 
 const trustPath = "atlas/trust.md"
@@ -30,6 +34,20 @@ func (v *Vault) GetTrustStage() (int, map[string]interface{}, error) {
 func (v *Vault) SetTrustStage(stage int, updatedBy, reason string) error {
 	if stage < 1 || stage > 3 {
 		return fmt.Errorf("trust stage must be 1, 2, or 3 (got %d)", stage)
+	}
+	decision, currentStage, err := trust.ClassifyAtCurrentStage(v.Dir, trust.Request{
+		ProducingOffice:    "trust_office",
+		ProducingSubsystem: "atlas_trust",
+		ActionClass:        trust.ActionRouteOrStaffingChange,
+		TargetDomain:       "atlas/trust",
+		TouchedState:       []trust.StateClass{trust.StateConstitutional, trust.StateOperational},
+		RequestedAuthority: ledger.ScopeOperatorTrustStageChange,
+	})
+	if err != nil {
+		return err
+	}
+	if !trust.Permits(decision, true) {
+		return fmt.Errorf("trust stage change blocked by trust gate: %s", decision.Reason)
 	}
 
 	// Read existing or create default
@@ -76,9 +94,47 @@ func (v *Vault) SetTrustStage(stage int, updatedBy, reason string) error {
 		"stage":      stage,
 		"updated":    time.Now().Format(time.RFC3339),
 		"updated_by": updatedBy,
+		"producing_signature": signature.Signature{
+			ProducingOffice:    "trust_office",
+			ProducingSubsystem: "atlas_trust",
+			StaffingContext:    updatedBy,
+			AuthorityScope:     ledger.ScopeOperatorTrustStageChange,
+			ArtifactState:      "canonical",
+			PromotionStatus:    "approved",
+			ProofRef:           fmt.Sprintf("trust-stage-%d", stage),
+		}.EnsureTimestamp(),
 	}
-
-	return v.Write(trustPath, fm, body)
+	if err := v.Write(trustPath, fm, body); err != nil {
+		return err
+	}
+	return ledger.Append(v.Dir, ledger.Record{
+		Office:         "trust_office",
+		Subsystem:      "atlas_trust",
+		AuthorityScope: ledger.ScopeOperatorTrustStageChange,
+		ActionClass:    ledger.ActionTrustStageTransition,
+		TargetDomain:   "atlas/trust",
+		ResultStatus:   ledger.ResultApplied,
+		Decision:       ledger.DecisionAllowedWithProof,
+		SideEffects:    []string{"trust_stage_updated"},
+		ProofRefs:      []string{trustPath},
+		Signature: signature.Signature{
+			ProducingOffice:    "trust_office",
+			ProducingSubsystem: "atlas_trust",
+			StaffingContext:    updatedBy,
+			AuthorityScope:     ledger.ScopeOperatorTrustStageChange,
+			ArtifactState:      "evidentiary",
+			SourceRefs:         []string{trustPath},
+			PromotionStatus:    "approved",
+		},
+		Metadata: map[string]interface{}{
+			"classifier_stage": currentStage,
+			"old_stage":        oldStage,
+			"new_stage":        stage,
+			"updated_by":       updatedBy,
+			"reason":           reason,
+			"trust_decision":   string(decision.Decision),
+		},
+	})
 }
 
 // TrustStageLabel returns a human-readable label for a trust stage.

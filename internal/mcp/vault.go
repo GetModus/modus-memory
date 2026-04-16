@@ -8,7 +8,12 @@ import (
 	"strings"
 
 	"github.com/GetModus/modus-memory/internal/index"
+	"github.com/GetModus/modus-memory/internal/ledger"
 	"github.com/GetModus/modus-memory/internal/librarian"
+	"github.com/GetModus/modus-memory/internal/maintain"
+	"github.com/GetModus/modus-memory/internal/memorykit"
+	"github.com/GetModus/modus-memory/internal/signature"
+	"github.com/GetModus/modus-memory/internal/trainer"
 	"github.com/GetModus/modus-memory/internal/vault"
 )
 
@@ -16,6 +21,7 @@ import (
 // RegisterAtlasTools, and RegisterQMTools with a unified set.
 // Old tool names are registered as aliases for backward compatibility.
 func RegisterVaultTools(srv *Server, v *vault.Vault) {
+	mem := memorykit.New(v)
 	// --- Search ---
 
 	searchHandler := func(args map[string]interface{}) (string, error) {
@@ -58,6 +64,12 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 		}
 
 		var sb strings.Builder
+
+		// Prepend correction hints if any match the query
+		if hints := v.FormatCorrectionHints(query); hints != "" {
+			sb.WriteString(hints)
+		}
+
 		sb.WriteString(fmt.Sprintf("Found %d results for %q:\n\n", len(allResults), query))
 		for i, r := range allResults {
 			sb.WriteString(fmt.Sprintf("%d. **%s**\n", i+1, r.Path))
@@ -276,73 +288,117 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 		if l, ok := args["limit"].(float64); ok {
 			limit = int(l)
 		}
-
-		// Search with optional librarian expansion
-		queries := []string{query}
-		if librarian.Available() {
-			queries = librarian.ExpandQuery(query)
-			log.Printf("memory_search: librarian expanded %q → %d variants", query, len(queries))
-		}
-
-		// Run in-memory fact search across all query variants, merge by subject|predicate
-		seen := map[string]bool{}
-		var merged []index.MemFact
-
-		for _, q := range queries {
-			facts := v.Index.SearchFacts(q, limit)
-			for _, f := range facts {
-				key := f.Subject + "|" + f.Predicate
-				if !seen[key] {
-					seen[key] = true
-					merged = append(merged, f)
+		memoryTemperature, _ := args["memory_temperature"].(string)
+		routeSubject, _ := args["route_subject"].(string)
+		routeMission, _ := args["route_mission"].(string)
+		capturedByOffice, _ := args["captured_by_office"].(string)
+		lineageID, _ := args["lineage_id"].(string)
+		environment, _ := args["environment"].(string)
+		timeBand, _ := args["time_band"].(string)
+		verificationMode, _ := args["verification_mode"].(string)
+		recallMode, _ := args["recall_mode"].(string)
+		recallHarness, _ := args["recall_harness"].(string)
+		recallAdapter, _ := args["recall_adapter"].(string)
+		workItemID, _ := args["work_item_id"].(string)
+		var cueTerms []string
+		switch raw := args["cue_terms"].(type) {
+		case []interface{}:
+			for _, item := range raw {
+				if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+					cueTerms = append(cueTerms, strings.TrimSpace(s))
+				}
+			}
+		case []string:
+			for _, item := range raw {
+				if strings.TrimSpace(item) != "" {
+					cueTerms = append(cueTerms, strings.TrimSpace(item))
 				}
 			}
 		}
-
-		if len(merged) == 0 {
+		if strings.TrimSpace(recallHarness) == "" {
+			recallHarness = "mcp"
+		}
+		if strings.TrimSpace(recallAdapter) == "" {
+			recallAdapter = "mcp_tool"
+		}
+		if strings.TrimSpace(recallMode) == "" {
+			recallMode = "manual_search"
+		}
+		recall, err := mem.Recall(memorykit.RecallRequest{
+			Query: query,
+			Limit: limit,
+			Options: vault.FactSearchOptions{
+				MemoryTemperature: memoryTemperature,
+				RouteSubject:      routeSubject,
+				RouteMission:      routeMission,
+				CapturedByOffice:  capturedByOffice,
+				LineageID:         lineageID,
+				Environment:       environment,
+				CueTerms:          cueTerms,
+				TimeBand:          timeBand,
+				VerificationMode:  verificationMode,
+				WorkItemID:        strings.TrimSpace(workItemID),
+			},
+			Harness:            strings.TrimSpace(recallHarness),
+			Adapter:            strings.TrimSpace(recallAdapter),
+			Mode:               strings.TrimSpace(recallMode),
+			ProducingOffice:    "librarian",
+			ProducingSubsystem: "mcp_memory_search",
+			StaffingContext:    "mcp_adapter",
+			WorkItemID:         strings.TrimSpace(workItemID),
+		})
+		if err != nil {
+			return "", err
+		}
+		if len(recall.Lines) == 0 {
 			return "No memory facts matched this query.", nil
 		}
-
-		// Cap at limit
-		if len(merged) > limit {
-			merged = merged[:limit]
-		}
-
-		// Reinforce accessed facts — FSRS recall event.
-		// Each fact returned to an agent is a successful recall, strengthening stability.
-		for _, f := range merged {
-			if f.ID != "" {
-				go v.ReinforceFact(f.ID) // async — don't block search response
-			}
-		}
-
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("%d results (bm25+librarian, %d queries):\n\n",
-			len(merged), len(queries)))
-		for _, f := range merged {
-			tier := f.Tier()
-			line := fmt.Sprintf("- **%s** %s → %s (conf=%.2f, %s)",
-				f.Subject, f.Predicate, truncateStr(f.Value, 120), f.Confidence, tier)
-			if warn := f.StalenessWarning(); warn != "" {
-				line += " " + warn
-			}
-			sb.WriteString(line + "\n")
-		}
-		return sb.String(), nil
+		return strings.Join(recall.Lines, "\n"), nil
 	}
 
 	memorySearchSchema := map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"query": map[string]interface{}{"type": "string", "description": "Search query"},
-			"limit": map[string]interface{}{"type": "integer", "description": "Max results (default 10)"},
+			"query":              map[string]interface{}{"type": "string", "description": "Search query"},
+			"limit":              map[string]interface{}{"type": "integer", "description": "Max results (default 10)"},
+			"memory_temperature": map[string]interface{}{"type": "string", "description": "Optional hot or warm filter for runtime admission discipline"},
+			"route_subject":      map[string]interface{}{"type": "string", "description": "Optional coarse retrieval subject route"},
+			"route_mission":      map[string]interface{}{"type": "string", "description": "Optional coarse retrieval mission route"},
+			"captured_by_office": map[string]interface{}{"type": "string", "description": "Optional coarse retrieval office route"},
+			"lineage_id":         map[string]interface{}{"type": "string", "description": "Optional lineage route selector"},
+			"environment":        map[string]interface{}{"type": "string", "description": "Optional environment route selector"},
+			"cue_terms":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Optional retrieval cue packet"},
+			"time_band":          map[string]interface{}{"type": "string", "description": "Optional time band such as recent or archive"},
+			"verification_mode":  map[string]interface{}{"type": "string", "description": "Optional verification mode such as critical to reopen cited sources for each result"},
+			"recall_mode":        map[string]interface{}{"type": "string", "description": "Optional recall mode label such as manual_search or automatic_hot_admission"},
+			"recall_harness":     map[string]interface{}{"type": "string", "description": "Optional harness label for durable recall receipts"},
+			"recall_adapter":     map[string]interface{}{"type": "string", "description": "Optional adapter label for durable recall receipts"},
+			"work_item_id":       map[string]interface{}{"type": "string", "description": "Optional work-item lineage identifier"},
 		},
 		"required": []string{"query"},
 	}
 
-	srv.AddTool("memory_search", "Search episodic memory facts with librarian expansion and FSRS reinforcement.", memorySearchSchema, memorySearchHandler)
+	srv.AddTool("memory_search", "Search episodic memory facts with durable recall receipts and reinforcement.", memorySearchSchema, memorySearchHandler)
 
 	// --- Memory Store ---
+	stringSliceArg := func(value interface{}) []string {
+		var out []string
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+					out = append(out, strings.TrimSpace(s))
+				}
+			}
+		case []string:
+			for _, item := range v {
+				if strings.TrimSpace(item) != "" {
+					out = append(out, strings.TrimSpace(item))
+				}
+			}
+		}
+		return out
+	}
 
 	memoryStoreHandler := func(args map[string]interface{}) (string, error) {
 		subject, _ := args["subject"].(string)
@@ -356,8 +412,45 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 		if imp, ok := args["importance"].(string); ok {
 			importance = imp
 		}
-
-		relPath, err := v.StoreFact(subject, predicate, value, confidence, importance)
+		source, _ := args["source"].(string)
+		sourceRef, _ := args["source_ref"].(string)
+		sourceEventID, _ := args["source_event_id"].(string)
+		lineageID, _ := args["lineage_id"].(string)
+		mission, _ := args["mission"].(string)
+		workItemID, _ := args["work_item_id"].(string)
+		environment, _ := args["environment"].(string)
+		observedAt, _ := args["observed_at"].(string)
+		validFrom, _ := args["valid_from"].(string)
+		validTo, _ := args["valid_to"].(string)
+		memoryTemperature, _ := args["memory_temperature"].(string)
+		relPath, err := mem.StoreFact(subject, predicate, value, confidence, importance, vault.FactWriteAuthority{
+			ProducingOffice:     "main_brain",
+			ProducingSubsystem:  "mcp_memory_store",
+			StaffingContext:     "mcp",
+			AuthorityScope:      ledger.ScopeRuntimeMemoryStore,
+			TargetDomain:        "memory/facts",
+			Source:              source,
+			SourceRef:           sourceRef,
+			SourceRefs:          stringSliceArg(args["source_refs"]),
+			SourceEventID:       sourceEventID,
+			LineageID:           lineageID,
+			Mission:             mission,
+			WorkItemID:          workItemID,
+			Environment:         environment,
+			ObservedAt:          observedAt,
+			ValidFrom:           validFrom,
+			ValidTo:             validTo,
+			SupersedesPaths:     stringSliceArg(args["supersedes_paths"]),
+			RelatedFactPaths:    stringSliceArg(args["related_fact_paths"]),
+			RelatedEpisodePaths: stringSliceArg(args["related_episode_paths"]),
+			RelatedEntityRefs:   stringSliceArg(args["related_entity_refs"]),
+			RelatedMissionRefs:  stringSliceArg(args["related_mission_refs"]),
+			CueTerms:            stringSliceArg(args["cue_terms"]),
+			MemoryTemperature:   memoryTemperature,
+			AllowApproval:       true,
+			PromotionStatus:     "proposed",
+			ProofRef:            "mcp-memory-store",
+		})
 		if err != nil {
 			return "", err
 		}
@@ -372,11 +465,620 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 			"value":      map[string]interface{}{"type": "string"},
 			"confidence": map[string]interface{}{"type": "number", "description": "0.0-1.0"},
 			"importance": map[string]interface{}{"type": "string", "enum": []string{"critical", "high", "medium", "low"}},
+			"source":     map[string]interface{}{"type": "string", "description": "Human-readable provenance label"},
+			"source_ref": map[string]interface{}{"type": "string", "description": "Canonical source reference"},
+			"source_refs": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Additional canonical source references",
+			},
+			"source_event_id": map[string]interface{}{"type": "string", "description": "Episode event_id backing this semantic fact"},
+			"lineage_id":      map[string]interface{}{"type": "string", "description": "Shared lineage identifier across related episodes and facts"},
+			"mission":         map[string]interface{}{"type": "string", "description": "Optional mission route anchor for this fact"},
+			"work_item_id":    map[string]interface{}{"type": "string", "description": "Optional work-item lineage identifier"},
+			"environment":     map[string]interface{}{"type": "string", "description": "Optional environment or operating context"},
+			"observed_at":     map[string]interface{}{"type": "string", "description": "RFC3339 timestamp for when this fact was observed"},
+			"valid_from":      map[string]interface{}{"type": "string", "description": "RFC3339 timestamp marking the start of the fact validity window"},
+			"valid_to":        map[string]interface{}{"type": "string", "description": "RFC3339 timestamp marking the end of the fact validity window"},
+			"supersedes_paths": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Older fact paths this new fact supersedes without deleting them",
+			},
+			"related_fact_paths": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Related semantic fact paths that should remain linked to this fact",
+			},
+			"related_episode_paths": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Related episodic memory paths that ground this fact",
+			},
+			"related_entity_refs": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Entity references structurally linked to this fact",
+			},
+			"related_mission_refs": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Mission references structurally linked to this fact",
+			},
+			"cue_terms": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Retrieval cues associated with this fact",
+			},
+			"memory_temperature": map[string]interface{}{"type": "string", "enum": []string{"hot", "warm"}},
 		},
 		"required": []string{"subject", "predicate", "value"},
 	}
 
 	srv.AddTool("memory_store", "Store a new episodic memory fact.", memoryStoreSchema, memoryStoreHandler)
+
+	memoryEpisodeStoreHandler := func(args map[string]interface{}) (string, error) {
+		body, _ := args["body"].(string)
+		eventKind, _ := args["event_kind"].(string)
+		subject, _ := args["subject"].(string)
+		source, _ := args["source"].(string)
+		sourceRef, _ := args["source_ref"].(string)
+		eventID, _ := args["event_id"].(string)
+		lineageID, _ := args["lineage_id"].(string)
+		mission, _ := args["mission"].(string)
+		workItemID, _ := args["work_item_id"].(string)
+		environment, _ := args["environment"].(string)
+		relPath, storedEventID, err := mem.StoreEpisode(body, vault.EpisodeWriteAuthority{
+			ProducingOffice:     "main_brain",
+			ProducingSubsystem:  "mcp_memory_episode_store",
+			StaffingContext:     "mcp",
+			AuthorityScope:      ledger.ScopeRuntimeMemoryStore,
+			TargetDomain:        "memory/episodes",
+			Source:              source,
+			SourceRef:           sourceRef,
+			SourceRefs:          stringSliceArg(args["source_refs"]),
+			ProofRef:            "mcp-memory-episode-store",
+			PromotionStatus:     "observed",
+			EventID:             eventID,
+			LineageID:           lineageID,
+			EventKind:           eventKind,
+			Subject:             subject,
+			Mission:             mission,
+			WorkItemID:          workItemID,
+			Environment:         environment,
+			RelatedFactPaths:    stringSliceArg(args["related_fact_paths"]),
+			RelatedEpisodePaths: stringSliceArg(args["related_episode_paths"]),
+			RelatedEntityRefs:   stringSliceArg(args["related_entity_refs"]),
+			RelatedMissionRefs:  stringSliceArg(args["related_mission_refs"]),
+			CueTerms:            stringSliceArg(args["cue_terms"]),
+			AllowApproval:       true,
+		})
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("Stored episode: %s (event_id: %s)", relPath, storedEventID), nil
+	}
+
+	memoryEpisodeStoreSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"body":       map[string]interface{}{"type": "string", "description": "Raw or near-raw episodic trace"},
+			"event_kind": map[string]interface{}{"type": "string", "description": "observation, interaction, decision, recall, correction, synthesis"},
+			"subject":    map[string]interface{}{"type": "string", "description": "Primary entity or topic"},
+			"source":     map[string]interface{}{"type": "string", "description": "Human-readable provenance label"},
+			"source_ref": map[string]interface{}{"type": "string", "description": "Canonical source reference"},
+			"source_refs": map[string]interface{}{
+				"type":  "array",
+				"items": map[string]interface{}{"type": "string"},
+			},
+			"event_id":     map[string]interface{}{"type": "string", "description": "Optional explicit event identifier"},
+			"lineage_id":   map[string]interface{}{"type": "string", "description": "Optional shared lineage identifier"},
+			"mission":      map[string]interface{}{"type": "string", "description": "Optional mission route anchor for this episode"},
+			"work_item_id": map[string]interface{}{"type": "string", "description": "Optional work-item lineage identifier"},
+			"environment":  map[string]interface{}{"type": "string", "description": "Optional environment or operating context"},
+			"related_fact_paths": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Related semantic fact paths linked to this episode",
+			},
+			"related_episode_paths": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Related episodic memory paths linked to this episode",
+			},
+			"related_entity_refs": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Entity references linked to this episode",
+			},
+			"related_mission_refs": map[string]interface{}{
+				"type":        "array",
+				"items":       map[string]interface{}{"type": "string"},
+				"description": "Mission references linked to this episode",
+			},
+			"cue_terms": map[string]interface{}{
+				"type":  "array",
+				"items": map[string]interface{}{"type": "string"},
+			},
+		},
+		"required": []string{"body"},
+	}
+
+	srv.AddTool("memory_episode_store", "Store a first-class episodic memory object with event identity, lineage, content hash, and cue terms.", memoryEpisodeStoreSchema, memoryEpisodeStoreHandler)
+
+	// --- Memory Learn (Corrections) ---
+
+	memoryLearnHandler := func(args map[string]interface{}) (string, error) {
+		original, _ := args["original"].(string)
+		corrected, _ := args["corrected"].(string)
+		context, _ := args["context"].(string)
+		createdBy, _ := args["created_by"].(string)
+
+		relPath, err := v.StoreCorrection(original, corrected, context, createdBy)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("Correction stored: \"%s\" → \"%s\" at %s", original, corrected, relPath), nil
+	}
+
+	memoryLearnSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"original":   map[string]interface{}{"type": "string", "description": "The original phrasing or value that was incorrect or suboptimal"},
+			"corrected":  map[string]interface{}{"type": "string", "description": "The corrected phrasing or value"},
+			"context":    map[string]interface{}{"type": "string", "description": "Why this correction matters — what went wrong"},
+			"created_by": map[string]interface{}{"type": "string", "description": "Who created this correction (model name, 'user', etc.)"},
+		},
+		"required": []string{"original", "corrected"},
+	}
+
+	srv.AddTool("memory_learn", "Record a correction pattern. When the original phrasing is encountered in future searches, the corrected version is surfaced as an annotation. Corrections are non-destructive — original facts are never rewritten.", memoryLearnSchema, memoryLearnHandler)
+
+	// --- Memory Trace (Task Execution) ---
+
+	memoryTraceHandler := func(args map[string]interface{}) (string, error) {
+		task, _ := args["task"].(string)
+		outcome, _ := args["outcome"].(string)
+		createdBy, _ := args["created_by"].(string)
+		model, _ := args["model"].(string)
+		durationSec := 0.0
+		if d, ok := args["duration_sec"].(float64); ok {
+			durationSec = d
+		}
+
+		var steps []string
+		if s, ok := args["steps"].([]interface{}); ok {
+			for _, item := range s {
+				if str, ok := item.(string); ok {
+					steps = append(steps, str)
+				}
+			}
+		}
+
+		var toolsUsed []string
+		if t, ok := args["tools_used"].([]interface{}); ok {
+			for _, item := range t {
+				if str, ok := item.(string); ok {
+					toolsUsed = append(toolsUsed, str)
+				}
+			}
+		}
+
+		relPath, err := v.StoreTrace(task, outcome, steps, durationSec, toolsUsed, createdBy, model)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("Trace stored: %s → %s at %s", task, outcome, relPath), nil
+	}
+
+	memoryTraceSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"task":         map[string]interface{}{"type": "string", "description": "What task was attempted"},
+			"outcome":      map[string]interface{}{"type": "string", "description": "Result: success, failure, partial, etc."},
+			"steps":        map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Steps taken during execution"},
+			"duration_sec": map[string]interface{}{"type": "number", "description": "How long the task took in seconds"},
+			"tools_used":   map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}, "description": "Which tools were used"},
+			"created_by":   map[string]interface{}{"type": "string", "description": "Who generated this trace (model name, agent role, etc.)"},
+			"model":        map[string]interface{}{"type": "string", "description": "Which model/backend produced this trace"},
+		},
+		"required": []string{"task", "outcome"},
+	}
+
+	srv.AddTool("memory_trace", "Record a task execution trace. Traces are provenance-rich procedural memory — they record what was tried, what worked, what failed. Surfaced by memory_search when similar tasks are queried.", memoryTraceSchema, memoryTraceHandler)
+
+	// --- memory_tune: Advisory FSRS Tuning ---
+
+	memoryTuneSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"apply": map[string]interface{}{"type": "boolean", "description": "If true, promote proposals into active FSRS config. Default: false (dry run — analysis only)."},
+		},
+	}
+
+	memoryTuneHandler := func(args map[string]interface{}) (string, error) {
+		report, err := v.AnalyzeFSRS()
+		if err != nil {
+			return "", fmt.Errorf("FSRS analysis failed: %w", err)
+		}
+
+		// Save the report
+		relPath, err := v.SaveTuneReport(report)
+		if err != nil {
+			return "", fmt.Errorf("failed to save tune report: %w", err)
+		}
+
+		apply, _ := args["apply"].(bool)
+		if apply && len(report.Proposals) > 0 {
+			if err := v.ApplyTuneReport(report); err != nil {
+				return "", fmt.Errorf("failed to apply tune proposals: %w", err)
+			}
+			return fmt.Sprintf("Report saved to %s. Proposals applied to active FSRS config.\n\n%s", relPath, vault.FormatTuneReport(report)), nil
+		}
+
+		return fmt.Sprintf("Report saved to %s. No changes applied (dry run).\n\n%s", relPath, vault.FormatTuneReport(report)), nil
+	}
+
+	srv.AddTool("memory_tune", "Analyze FSRS retention patterns and propose parameter adjustments. Dry run by default — set apply: true to promote proposals into active config. Reports are versioned under memory/fsrs-tuning/.", memoryTuneSchema, memoryTuneHandler)
+
+	// --- memory_maintain: Vault Health Maintenance ---
+
+	memoryMaintainSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"mode": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"consolidate", "contradict", "bootstrap", "replay", "structural", "hot", "elder", "all", "apply"},
+				"description": "Which maintenance pass to run. 'apply' executes approved review artifacts. Default: all.",
+			},
+		},
+	}
+
+	memoryMaintainHandler := func(args map[string]interface{}) (string, error) {
+		mode := maintain.ModeAll
+		if m, ok := args["mode"].(string); ok {
+			mode = maintain.Mode(m)
+		}
+
+		report, err := maintain.Run(v, mode, false)
+		if err != nil {
+			return "", fmt.Errorf("maintenance failed: %w", err)
+		}
+
+		return maintain.FormatReport(report), nil
+	}
+
+	srv.AddTool("memory_maintain", "Run vault health maintenance. Detects duplicate facts (consolidate), contradictions (contradict), extracts new facts from vault prose (bootstrap), proposes semantic promotions from replayed episodes and recall receipts (replay), proposes additive structural-link backfill from hard evidence already present in memory (structural), reviews hot-tier memory governance (hot), and reviews elder-memory protection plus elder anomalies (elder). Approved structural, temporal, hot, and elder review artifacts are applied through mode: apply. All outputs are review artifacts under memory/maintenance/ — nothing is silently rewritten.", memoryMaintainSchema, memoryMaintainHandler)
+
+	// --- memory_hot_transition_propose: explicit warm/hot review proposal ---
+
+	memoryHotTransitionSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"fact_path": map[string]interface{}{"type": "string", "description": "Relative path to the fact under memory/facts/."},
+			"proposed_temperature": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"hot", "warm"},
+				"description": "Requested new memory temperature.",
+			},
+			"reason": map[string]interface{}{"type": "string", "description": "Why this fact should change admission tier."},
+		},
+		"required": []string{"fact_path", "proposed_temperature", "reason"},
+	}
+
+	memoryHotTransitionHandler := func(args map[string]interface{}) (string, error) {
+		factPath, _ := args["fact_path"].(string)
+		proposedTemperature, _ := args["proposed_temperature"].(string)
+		reason, _ := args["reason"].(string)
+		if err := maintain.WriteHotMemoryTransitionCandidate(v, maintain.HotMemoryTransitionCandidate{
+			FactPath:            factPath,
+			ProposedTemperature: proposedTemperature,
+			Reason:              reason,
+			ProducingOffice:     "memory_governance",
+			ProducingSubsystem:  "mcp_hot_memory_transition",
+			StaffingContext:     "operator_mcp",
+			AuthorityScope:      ledger.ScopeCandidateHotMemoryReview,
+			ProofRef:            "mcp-hot-memory-transition:" + factPath,
+		}); err != nil {
+			return "", fmt.Errorf("failed to write hot memory transition candidate: %w", err)
+		}
+		return fmt.Sprintf("Hot memory transition candidate created for %s -> %s. Review the artifact under memory/maintenance/, set status: approved when appropriate, then run memory_maintain with mode: apply.", factPath, proposedTemperature), nil
+	}
+
+	srv.AddTool("memory_hot_transition_propose", "Create an explicit review artifact proposing a warm/hot memory transition for a fact. This never mutates the fact directly; approval and memory_maintain apply are required.", memoryHotTransitionSchema, memoryHotTransitionHandler)
+
+	// --- memory_temporal_transition_propose: explicit temporal/supersession review proposal ---
+
+	memoryTemporalTransitionSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"fact_path": map[string]interface{}{"type": "string", "description": "Relative path to the fact under memory/facts/."},
+			"proposed_temporal_status": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"active", "superseded", "expired"},
+				"description": "Requested new temporal status.",
+			},
+			"reason":      map[string]interface{}{"type": "string", "description": "Why this fact should change temporal status."},
+			"observed_at": map[string]interface{}{"type": "string", "description": "Optional RFC3339 timestamp marking when the fact was observed."},
+			"valid_from":  map[string]interface{}{"type": "string", "description": "Optional RFC3339 timestamp marking when the fact became true."},
+			"valid_to":    map[string]interface{}{"type": "string", "description": "Optional RFC3339 timestamp marking when the fact ceased to be true."},
+			"superseded_by_path": map[string]interface{}{
+				"type":        "string",
+				"description": "Required when superseding: the newer fact path that should replace this one.",
+			},
+		},
+		"required": []string{"fact_path", "proposed_temporal_status", "reason"},
+	}
+
+	memoryTemporalTransitionHandler := func(args map[string]interface{}) (string, error) {
+		factPath, _ := args["fact_path"].(string)
+		proposedTemporalStatus, _ := args["proposed_temporal_status"].(string)
+		reason, _ := args["reason"].(string)
+		observedAt, _ := args["observed_at"].(string)
+		validFrom, _ := args["valid_from"].(string)
+		validTo, _ := args["valid_to"].(string)
+		supersededByPath, _ := args["superseded_by_path"].(string)
+		if err := maintain.WriteFactTemporalTransitionCandidate(v, maintain.FactTemporalTransitionCandidate{
+			FactPath:               factPath,
+			ProposedTemporalStatus: proposedTemporalStatus,
+			Reason:                 reason,
+			ObservedAt:             observedAt,
+			ValidFrom:              validFrom,
+			ValidTo:                validTo,
+			SupersededByPath:       supersededByPath,
+			ProducingOffice:        "memory_governance",
+			ProducingSubsystem:     "mcp_temporal_transition",
+			StaffingContext:        "operator_mcp",
+			AuthorityScope:         ledger.ScopeCandidateFactTemporalReview,
+			ProofRef:               "mcp-temporal-transition:" + factPath,
+		}); err != nil {
+			return "", fmt.Errorf("failed to write temporal transition candidate: %w", err)
+		}
+		return fmt.Sprintf("Temporal transition candidate created for %s -> %s. Review the artifact under memory/maintenance/, set status: approved when appropriate, then run memory_maintain with mode: apply.", factPath, proposedTemporalStatus), nil
+	}
+
+	srv.AddTool("memory_temporal_transition_propose", "Create an explicit review artifact proposing a temporal or supersession transition for a fact. This never mutates the fact directly; approval and memory_maintain apply are required.", memoryTemporalTransitionSchema, memoryTemporalTransitionHandler)
+
+	// --- memory_elder_transition_propose: explicit elder-memory review proposal ---
+
+	memoryElderTransitionSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"fact_path": map[string]interface{}{"type": "string", "description": "Relative path to the fact under memory/facts/."},
+			"proposed_protection_class": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"elder", "ordinary"},
+				"description": "Requested elder-memory protection class.",
+			},
+			"reason": map[string]interface{}{"type": "string", "description": "Why this fact should gain or lose elder-memory protection."},
+		},
+		"required": []string{"fact_path", "proposed_protection_class", "reason"},
+	}
+
+	memoryElderTransitionHandler := func(args map[string]interface{}) (string, error) {
+		factPath, _ := args["fact_path"].(string)
+		proposedProtectionClass, _ := args["proposed_protection_class"].(string)
+		reason, _ := args["reason"].(string)
+		if err := maintain.WriteElderMemoryTransitionCandidate(v, maintain.ElderMemoryTransitionCandidate{
+			FactPath:                factPath,
+			ProposedProtectionClass: proposedProtectionClass,
+			Reason:                  reason,
+			ProducingOffice:         "memory_governance",
+			ProducingSubsystem:      "mcp_elder_memory_transition",
+			StaffingContext:         "operator_mcp",
+			AuthorityScope:          ledger.ScopeCandidateElderMemoryReview,
+			ProofRef:                "mcp-elder-memory-transition:" + factPath,
+		}); err != nil {
+			return "", fmt.Errorf("failed to write elder memory transition candidate: %w", err)
+		}
+		return fmt.Sprintf("Elder memory transition candidate created for %s -> %s. Review the artifact under memory/maintenance/, set status: approved when appropriate, then run memory_maintain with mode: apply.", factPath, proposedProtectionClass), nil
+	}
+
+	srv.AddTool("memory_elder_transition_propose", "Create an explicit review artifact proposing elder-memory protection for a fact. This never mutates the fact directly; approval and memory_maintain apply are required.", memoryElderTransitionSchema, memoryElderTransitionHandler)
+
+	// --- memory_secure_state: write or verify the memory secure-state manifest ---
+
+	memorySecureStateSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"mode": map[string]interface{}{
+				"type":        "string",
+				"enum":        []string{"write", "verify"},
+				"description": "Write a fresh secure-state manifest or verify current memory state against the latest manifest and ledger root.",
+			},
+		},
+	}
+
+	memorySecureStateHandler := func(args map[string]interface{}) (string, error) {
+		mode, _ := args["mode"].(string)
+		if strings.TrimSpace(mode) == "" {
+			mode = "verify"
+		}
+		mem := memorykit.New(v)
+		switch mode {
+		case "write":
+			result, err := mem.WriteSecureStateManifest()
+			if err != nil {
+				return "", fmt.Errorf("write secure-state manifest: %w", err)
+			}
+			return fmt.Sprintf("Memory secure-state manifest written at %s with root %s over %d files. Canonical=%d, operational=%d, sealed=%d.", result.ManifestPath, result.Manifest.RootHash, result.Manifest.FileCount, result.Manifest.ClassCounts["canonical"], result.Manifest.ClassCounts["operational"], result.Manifest.ClassCounts["sealed"]), nil
+		case "verify":
+			result, err := mem.VerifySecureStateManifest()
+			if err != nil {
+				return "", fmt.Errorf("verify secure-state manifest: %w", err)
+			}
+			if result.Verified {
+				return fmt.Sprintf("Memory secure-state verified against %s. Root %s matches current state and no rollback suspicion was detected.", result.ManifestPath, result.ExpectedRootHash), nil
+			}
+			return fmt.Sprintf("Memory secure-state verification failed against %s. expected=%s current=%s ledger=%s rollback_suspected=%t drift_paths=%d", result.ManifestPath, result.ExpectedRootHash, result.CurrentRootHash, result.LedgerRootHash, result.RollbackSuspected, len(result.DriftPaths)), nil
+		default:
+			return "", fmt.Errorf("unsupported mode: %s", mode)
+		}
+	}
+
+	srv.AddTool("memory_secure_state", "Write or verify the memory secure-state manifest. This provides a mediated snapshot of the sovereign memory estate and checks the current state against the latest manifest and ledger root for drift or rollback suspicion.", memorySecureStateSchema, memorySecureStateHandler)
+
+	// --- memory_evaluate: run the synthetic Grade S memory evaluation harness ---
+
+	memoryEvaluateSchema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+	}
+
+	memoryEvaluateHandler := func(args map[string]interface{}) (string, error) {
+		result, err := mem.Evaluate()
+		if err != nil {
+			return "", fmt.Errorf("run memory evaluation: %w", err)
+		}
+		return fmt.Sprintf("Memory evaluation completed with score %.2f across %d cases (%d passed). Report written at %s.", result.Report.OverallScore, result.Report.TotalCases, result.Report.PassedCases, result.ReportPath), nil
+	}
+
+	srv.AddTool("memory_evaluate", "Run the Grade S synthetic memory evaluation harness. This scores interference recall, elder retention, replay promotion, hot-tier stale detection, and secure-state tamper and rollback detection, then writes a ledger-backed report under state/memory/evaluations/.", memoryEvaluateSchema, memoryEvaluateHandler)
+
+	// --- memory_trial_run: run the live sovereign-vault memory trial harness ---
+
+	memoryTrialRunSchema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+	}
+
+	memoryTrialRunHandler := func(args map[string]interface{}) (string, error) {
+		result, err := mem.RunTrials()
+		if err != nil {
+			return "", fmt.Errorf("run memory trials: %w", err)
+		}
+		return fmt.Sprintf("Memory trial report completed with score %.2f across %d live cases (%d passed). Report written at %s.", result.Report.OverallScore, result.Report.TotalCases, result.Report.PassedCases, result.ReportPath), nil
+	}
+
+	srv.AddTool("memory_trial_run", "Run the live sovereign-vault memory trial harness over authored trial cases under state/memory/trials/cases/. This grades the present memory estate rather than a synthetic fixture corpus.", memoryTrialRunSchema, memoryTrialRunHandler)
+
+	// --- memory_readiness: write a pretesting readiness report over the live sovereign estate ---
+
+	memoryReadinessSchema := map[string]interface{}{
+		"type":       "object",
+		"properties": map[string]interface{}{},
+	}
+
+	memoryReadinessHandler := func(args map[string]interface{}) (string, error) {
+		result, err := mem.RunReadiness()
+		if err != nil {
+			return "", fmt.Errorf("run memory readiness audit: %w", err)
+		}
+		return fmt.Sprintf("Memory readiness report written at %s. status=%s issues=%d trial_score=%.2f evaluation_score=%.2f portability_score=%.2f secure_state_verified=%t", result.ReportPath, result.Report.Status, len(result.Report.Issues), result.Report.TrialScore, result.Report.EvaluationScore, result.Report.PortabilityScore, result.Report.SecureStateVerified), nil
+	}
+
+	srv.AddTool("memory_readiness", "Write a pretesting readiness report over the live sovereign memory estate. This refreshes the secure-state manifest, verifies it, inspects the live memory shelves and current reports, and writes a canonical readiness surface under state/memory/readiness/.", memoryReadinessSchema, memoryReadinessHandler)
+
+	// --- memory_portability_audit: compare external Claude cache coverage against sovereign memory ---
+
+	memoryPortabilitySchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"cache_path": map[string]interface{}{
+				"type":        "string",
+				"description": "Optional override for the external Claude project memory directory. Defaults to the current project's ~/.claude cache path.",
+			},
+		},
+	}
+
+	memoryPortabilityHandler := func(args map[string]interface{}) (string, error) {
+		cachePath, _ := args["cache_path"].(string)
+		result, err := mem.AuditPortability(cachePath)
+		if err != nil {
+			return "", fmt.Errorf("run memory portability audit: %w", err)
+		}
+		return fmt.Sprintf("Memory portability audit written at %s. cache_present=%t files=%d covered=%d external_only=%d score=%.2f", result.ReportPath, result.Report.CachePresent, result.Report.TotalFiles, result.Report.CoveredFiles, result.Report.ExternalOnly, result.Report.CoverageScore), nil
+	}
+
+	srv.AddTool("memory_portability_audit", "Audit the current project's external Claude memory cache against sovereign MODUS memory. This writes a conservative coverage report under state/memory/portability/ without mutating any durable memory.", memoryPortabilitySchema, memoryPortabilityHandler)
+
+	// --- memory_portability_queue: turn external-only residue into explicit migration work ---
+
+	memoryPortabilityQueueHandler := func(args map[string]interface{}) (string, error) {
+		cachePath, _ := args["cache_path"].(string)
+		result, err := mem.BuildPortabilityQueue(cachePath)
+		if err != nil {
+			return "", fmt.Errorf("build memory portability queue: %w", err)
+		}
+		return fmt.Sprintf("Memory portability queue written at %s. items=%d critical=%d high=%d medium=%d low=%d", result.ReportPath, result.Report.TotalItems, result.Report.PriorityCounts["critical"], result.Report.PriorityCounts["high"], result.Report.PriorityCounts["medium"], result.Report.PriorityCounts["low"]), nil
+	}
+
+	srv.AddTool("memory_portability_queue", "Refresh the Claude-cache portability audit and write a read-only migration queue for external-only residue under state/memory/portability/. This never mutates durable memory.", memoryPortabilitySchema, memoryPortabilityQueueHandler)
+
+	// --- memory_portability_archive: copy remaining external-only residue into sovereign archival custody ---
+
+	memoryPortabilityArchiveHandler := func(args map[string]interface{}) (string, error) {
+		cachePath, _ := args["cache_path"].(string)
+		result, err := mem.ArchivePortabilityResidue(cachePath)
+		if err != nil {
+			return "", fmt.Errorf("archive memory portability residue: %w", err)
+		}
+		return fmt.Sprintf("Memory portability archive written at %s. archived=%d destination=%s", result.ReportPath, result.Report.ArchivedCount, result.Report.DestinationRoot), nil
+	}
+
+	srv.AddTool("memory_portability_archive", "Refresh the portability queue and copy the remaining external-only Claude cache residue into sovereign archival custody under vault/brain/claude-memory-archive/. This does not promote the archived content into canonical fact memory.", memoryPortabilitySchema, memoryPortabilityArchiveHandler)
+
+	// --- memory_train: Offline Training Pipeline ---
+
+	memoryTrainSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"model_path":    map[string]interface{}{"type": "string", "description": "Path to base model (GGUF or MLX). Required for training."},
+			"generate_only": map[string]interface{}{"type": "boolean", "description": "If true, only generate training data without running training. Default: false."},
+			"promote":       map[string]interface{}{"type": "boolean", "description": "If true, promote the best unpromoted adapter. Requires prior successful training run."},
+			"note":          map[string]interface{}{"type": "string", "description": "Promotion note (why this adapter is being promoted)."},
+		},
+	}
+
+	memoryTrainHandler := func(args map[string]interface{}) (string, error) {
+		promote, _ := args["promote"].(bool)
+		if promote {
+			note, _ := args["note"].(string)
+			best := trainer.BestUnpromotedRun(v.Dir)
+			if best == nil {
+				return "No unpromoted training runs found. Run training first.", nil
+			}
+			// Run promotion gate check first
+			pass, reason := trainer.PromotionCheck(v.Dir, best)
+			if !pass {
+				return fmt.Sprintf("Promotion BLOCKED for run %s: %s", best.Timestamp, reason), nil
+			}
+			if err := trainer.PromoteRun(v.Dir, best, note); err != nil {
+				return "", fmt.Errorf("promote failed: %w", err)
+			}
+			return fmt.Sprintf("Promoted adapter from run %s.\nGate: %s\nNote: %s", best.Timestamp, reason, note), nil
+		}
+
+		generateOnly, _ := args["generate_only"].(bool)
+		outputDir := v.Path("memory", "training-data")
+
+		if generateOnly {
+			batch, err := trainer.GenerateBatch(v)
+			if err != nil {
+				return "", fmt.Errorf("generate failed: %w", err)
+			}
+			if err := trainer.WriteBatch(batch, outputDir); err != nil {
+				return "", fmt.Errorf("write failed: %w", err)
+			}
+			sft, dpo := trainer.CountPairs(outputDir)
+			return fmt.Sprintf("Training data generated: %d SFT pairs, %d DPO triples.\nOutput: %s\nMinimum for training: 50 pairs. Current: %d.",
+				sft, dpo, outputDir, sft+dpo), nil
+		}
+
+		modelPath, _ := args["model_path"].(string)
+		if modelPath == "" {
+			return "model_path required for training. Use generate_only: true to just generate data.", nil
+		}
+
+		result, err := trainer.RunTrainingLoop(v, modelPath, outputDir)
+		if err != nil {
+			return "", fmt.Errorf("training loop failed: %w", err)
+		}
+
+		return trainer.FormatLoopResult(result), nil
+	}
+
+	srv.AddTool("memory_train", "Generate training data from vault activity and optionally train a LoRA adapter. Offline pipeline — does not affect serving. Adapter promotion requires explicit promote action.", memoryTrainSchema, memoryTrainHandler)
 
 	// --- Atlas: Entities ---
 
@@ -631,6 +1333,31 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 		if err := v.SetTrustStage(stage, updatedBy, reason); err != nil {
 			return "", err
 		}
+		_ = ledger.Append(v.Dir, ledger.Record{
+			Office:         "trust_office",
+			Subsystem:      "mcp_atlas_set_trust",
+			AuthorityScope: ledger.ScopeOperatorTrustStageChange,
+			ActionClass:    ledger.ActionTrustStageTransitionRequest,
+			TargetDomain:   "atlas/trust",
+			ResultStatus:   ledger.ResultApplied,
+			Decision:       ledger.DecisionApprovalRequired,
+			SideEffects:    []string{"trust_stage_change_requested"},
+			ProofRefs:      []string{"atlas/trust.md"},
+			Signature: signature.Signature{
+				ProducingOffice:    "trust_office",
+				ProducingSubsystem: "mcp_atlas_set_trust",
+				StaffingContext:    updatedBy,
+				AuthorityScope:     ledger.ScopeOperatorTrustStageChange,
+				ArtifactState:      "evidentiary",
+				SourceRefs:         []string{"atlas/trust.md"},
+				PromotionStatus:    "approved",
+			},
+			Metadata: map[string]interface{}{
+				"stage":      stage,
+				"updated_by": updatedBy,
+				"reason":     reason,
+			},
+		})
 		return fmt.Sprintf("Trust stage set to %d (%s) by %s", stage, vault.TrustStageLabel(stage), updatedBy), nil
 	})
 
@@ -781,9 +1508,9 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 	srv.AddTool("qm_add_dependency", "Add a typed dependency between missions.", map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"mission": map[string]interface{}{"type": "string", "description": "Mission slug that has the dependency"},
+			"mission":    map[string]interface{}{"type": "string", "description": "Mission slug that has the dependency"},
 			"depends_on": map[string]interface{}{"type": "string", "description": "Mission slug it depends on"},
-			"type": map[string]interface{}{"type": "string", "description": "blocks, informs, or enhances"},
+			"type":       map[string]interface{}{"type": "string", "description": "blocks, informs, or enhances"},
 		},
 		"required": []string{"mission", "depends_on", "type"},
 	}, func(args map[string]interface{}) (string, error) {
@@ -799,7 +1526,7 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 	srv.AddTool("qm_remove_dependency", "Remove a dependency from a mission.", map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
-			"mission": map[string]interface{}{"type": "string", "description": "Mission slug"},
+			"mission":    map[string]interface{}{"type": "string", "description": "Mission slug"},
 			"depends_on": map[string]interface{}{"type": "string", "description": "Dependency to remove"},
 		},
 		"required": []string{"mission", "depends_on"},

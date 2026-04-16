@@ -4,28 +4,30 @@ import (
 	"math"
 	"time"
 
+	"github.com/GetModus/modus-memory/internal/ledger"
 	"github.com/GetModus/modus-memory/internal/markdown"
+	"github.com/GetModus/modus-memory/internal/signature"
 )
 
 // Per-predicate decay rates (per day). Matches Python atlas/graph/constants.py.
 var decayRates = map[string]float64{
-	"is_a":       0.001,
-	"created_by": 0.001,
-	"member_of":  0.002,
-	"contains":   0.005,
-	"depends_on": 0.005,
-	"uses":       0.01,
-	"blocks":     0.03,
-	"blocked_by": 0.03,
+	"is_a":         0.001,
+	"created_by":   0.001,
+	"member_of":    0.002,
+	"contains":     0.005,
+	"depends_on":   0.005,
+	"uses":         0.01,
+	"blocks":       0.03,
+	"blocked_by":   0.03,
 	"has_property": 0.015,
 }
 
 const (
-	defaultDecayRate  = 0.01
-	confidenceFloor   = 0.05
-	reinforceIndep    = 0.05
-	reinforceSame     = 0.02
-	weakenAmount      = 0.10
+	defaultDecayRate = 0.01
+	confidenceFloor  = 0.05
+	reinforceIndep   = 0.05
+	reinforceSame    = 0.02
+	weakenAmount     = 0.10
 )
 
 // DecayAllBeliefs sweeps all belief files in atlas/beliefs/ and applies
@@ -83,6 +85,32 @@ func (v *Vault) DecayAllBeliefs() (int, error) {
 			continue
 		}
 		updated++
+	}
+
+	if updated > 0 {
+		_ = ledger.Append(v.Dir, ledger.Record{
+			Office:         "memory_governance",
+			Subsystem:      "beliefs_decay",
+			AuthorityScope: ledger.ScopeScheduledBeliefDecay,
+			ActionClass:    ledger.ActionBeliefDecay,
+			TargetDomain:   "atlas/beliefs",
+			ResultStatus:   ledger.ResultApplied,
+			Decision:       ledger.DecisionAllowedWithProof,
+			SideEffects:    []string{"belief_confidence_decayed"},
+			ProofRefs:      []string{"atlas/beliefs"},
+			Signature: signature.Signature{
+				ProducingOffice:    "memory_governance",
+				ProducingSubsystem: "beliefs_decay",
+				AuthorityScope:     ledger.ScopeScheduledBeliefDecay,
+				ArtifactState:      "canonical",
+				SourceRefs:         []string{"atlas/beliefs"},
+				PromotionStatus:    "advisory",
+				ProofRef:           "beliefs-decay",
+			},
+			Metadata: map[string]interface{}{
+				"updated_count": updated,
+			},
+		})
 	}
 
 	return updated, nil

@@ -93,7 +93,7 @@ func (v *Vault) CreateMission(title, description, priority string) (string, erro
 	}
 
 	slug := slugify(title)
-	relPath := fmt.Sprintf("missions/active/%s.md", slug)
+	path := v.Path("missions", "active", slug+".md")
 	now := time.Now().Format("2006-01-02T15:04:05")
 
 	fm := map[string]interface{}{
@@ -104,10 +104,10 @@ func (v *Vault) CreateMission(title, description, priority string) (string, erro
 	}
 
 	body := "# " + title + "\n\n" + description
-	if err := v.Write(relPath, fm, body); err != nil {
+	if err := markdown.Write(path, fm, body); err != nil {
 		return "", err
 	}
-	return relPath, nil
+	return path, nil
 }
 
 // ShipClock returns the countdown to target.
