@@ -79,6 +79,6 @@
     <text x="439" y="18" font-family="monospace" font-size="11" fill="#58a6ff" text-anchor="middle">MCP</text>
 
     <rect x="490" y="0" width="90" height="28" rx="14" fill="#1f2937" stroke="#30363d" stroke-width="1"/>
-    <text x="535" y="18" font-family="monospace" font-size="11" fill="#7ee787" text-anchor="middle">~6MB</text>
+    <text x="535" y="18" font-family="monospace" font-size="11" fill="#7ee787" text-anchor="middle">~8MB</text>
   </g>
 </svg>

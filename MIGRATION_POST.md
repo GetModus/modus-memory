@@ -2,13 +2,13 @@
 
 Khoj announced their cloud service is shutting down. If you've been using it for AI memory, you need to move your data somewhere.
 
-I built [modus-memory](https://github.com/GetModus/modus-memory) as a personal memory server that runs locally. One binary, no Docker, no PostgreSQL, no Python environment. Your data stays as plain markdown files on your disk.
+I built [modus-memory](https://github.com/GetModus/modus-memory), now presented publicly as **Homing by MODUS**, as a local-first memory runtime. One binary, no required database, no Docker, no Python environment. Your data stays as plain markdown files on your disk.
 
 ## Migration takes 5 minutes
 
 ```bash
 # Install
-brew install GetModus/tap/modus-memory
+go install github.com/GetModus/modus-memory@latest
 
 # Export from Khoj (Settings → Export → save ZIP)
 # Import
@@ -26,7 +26,7 @@ That's it. Your conversations become searchable documents. Context references be
 - **FSRS spaced repetition** — old memories naturally fade, important ones strengthen on recall
 - **Cross-referencing** — facts linked by subject, tag, and entity
 - **MCP protocol** — works with Claude Desktop, Cursor, Windsurf, any MCP client
-- **~6MB binary, zero dependencies** — download and run
+- **~8MB stripped binary** — compact enough to download and run quickly
 
 ## What it doesn't do
 
@@ -42,7 +42,7 @@ That's it. Your conversations become searchable documents. Context references be
 | Storage | PostgreSQL | Plain markdown files |
 | Search | Embeddings (needs GPU/API) | BM25 (instant, no GPU) |
 | Memory decay | No | FSRS spaced repetition |
-| Size | ~2GB+ with deps | ~6MB |
+| Size | ~2GB+ with deps | ~8MB stripped |
 | Data portability | Database export | Files on disk |
 
 ## Post-import health check

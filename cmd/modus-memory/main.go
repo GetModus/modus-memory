@@ -1,8 +1,10 @@
-// modus-memory is a standalone MCP memory server.
+// modus-memory is a standalone sovereign memory kernel and MCP server.
 //
-// A single Go binary that provides personal memory over the MCP protocol.
-// BM25 full-text search, FSRS spaced-repetition decay, cross-referencing,
-// librarian query expansion — all in ~4MB, zero dependencies.
+// A single Go binary that provides local-first agent memory over the MCP
+// protocol and a shell-first governance surface. Route-aware retrieval,
+// episodic identity, recall receipts, governed review, portability audit,
+// readiness reporting, and synthetic plus live evaluation all live in the
+// same runtime.
 //
 // Usage:
 //
@@ -46,7 +48,7 @@ import (
 	"github.com/GetModus/modus-memory/internal/vault"
 )
 
-const version = "0.1.0"
+const version = "0.5.0"
 
 func main() {
 	// Parse flags

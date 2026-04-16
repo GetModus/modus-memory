@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
+  <a href="docs/reference/release-notes-v0.5.0-homing.md"><strong>Release Notes</strong></a> ·
   <a href="#attach-to-shells-harnesses-and-agents"><strong>Attach</strong></a> ·
   <a href="#why-the-name-changed"><strong>Name</strong></a> ·
   <a href="#quickstart"><strong>Quickstart</strong></a> ·
@@ -16,8 +17,9 @@
 <p align="center">
   <img src="https://img.shields.io/badge/MCP-compatible-blue?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj48Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSI4IiBmaWxsPSIjNThhNmZmIi8+PC9zdmc+" alt="MCP Compatible"/>
   <img src="https://img.shields.io/badge/platform-macOS%20·%20Linux%20·%20Windows-lightgrey?style=flat-square" alt="Platform"/>
-  <img src="https://img.shields.io/badge/size-~6MB-green?style=flat-square" alt="Binary Size"/>
-  <img src="https://img.shields.io/badge/dependencies-zero-brightgreen?style=flat-square" alt="Zero Dependencies"/>
+  <img src="https://img.shields.io/badge/release-v0.5.0-green?style=flat-square" alt="Release v0.5.0"/>
+  <img src="https://img.shields.io/badge/runtime-~8MB%20stripped-green?style=flat-square" alt="Approximate stripped runtime size"/>
+  <img src="https://img.shields.io/badge/storage-plain%20markdown-brightgreen?style=flat-square" alt="Plain markdown storage"/>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"/>
 </p>
 
@@ -25,19 +27,19 @@
 
 # Homing by MODUS
 
-**Homing** is the public name for the product currently shipped as `modus-memory`.
+**Homing** is the public product name for the `modus-memory` binary and module.
 
-We built it under a literal name because that was the honest description at the start: a local memory server. Over the last several sessions it became something more specific and more ambitious: a sovereign memory kernel for agents, with route-aware retrieval, episodic identity, recall receipts, governed hot memory, portability auditing, and a shell-first attachment lane for clients that do not expose native memory tools.
+It began as a local memory server. It is now a sovereign memory kernel for agents: route-aware retrieval, first-class episodes, durable recall receipts, governed review flows, shell-first carrier attachment, secure-state auditing, portability auditing, readiness reporting, and synthetic plus live evaluation.
 
-So the name changed because the product changed. `modus-memory` is still the current binary, package, and release name while packaging and docs catch up. **Homing** is the story we actually want strangers to hear.
+The name changed because the product changed. `modus-memory` remains the command, package, and release artifact for compatibility. **Homing by MODUS** is the product story we want strangers to understand immediately.
 
-One binary. No cloud. No Docker. No database. Your memory stays on your disk as files you can read, edit, grep, and back up with git.
+One binary. No required database. No hosted control plane. Your memory lives on disk as files you can read, diff, grep, and back up with ordinary tools.
 
 Not a chat-history graveyard. Not a black-box memory tax. Homing keeps agent continuity local, inspectable, and accountable.
 
-> **16,000+ documents indexed in ~2 seconds. Cached searches in <100 microseconds. ~6MB binary. Zero runtime dependencies.**
+> **Verified for this release line: a stripped Apple Silicon build is about 7.7 MB, storage remains plain markdown, and the runtime stays local-first.**
 
-If you want the release-quality walkthrough of what changed, what improved, what was fixed, and how to set the system up, start with [`docs/reference/homing-memory-update-2026-04.md`](docs/reference/homing-memory-update-2026-04.md).
+For the release walkthrough, start with [`docs/reference/release-notes-v0.5.0-homing.md`](docs/reference/release-notes-v0.5.0-homing.md). For the implementation deep dive, see [`docs/reference/homing-memory-update-2026-04.md`](docs/reference/homing-memory-update-2026-04.md).
 
 ## Why The Name Changed
 
@@ -53,14 +55,14 @@ Most memory products make the same bargain in different costumes: rent your cont
 
 Homing fills the gap:
 
-- **BM25 full-text search** with field boosting and query caching
-- **FSRS spaced repetition** — memories decay naturally, strengthen on recall
-- **Cross-referencing** — facts, notes, and entities linked by subject and tag
-- **Route-aware retrieval** — subject, mission, work item, office, lineage, cue terms
-- **Episodic identity + recall receipts** — evidence for what happened and what was actually consulted
-- **Librarian query expansion** — "React hooks" can also find "useState lifecycle"
+- **Route-aware retrieval** — recall can narrow by subject, mission, office, work item, lineage, environment, time band, and cue terms
+- **Episodic identity** — first-class episodes with `event_id`, `lineage_id`, `content_hash`, and cue-bearing provenance
+- **Recall receipts** — durable evidence of what the system actually consulted
+- **Governed memory review** — explicit hot, temporal, structural, and elder review artifacts instead of silent mutation
+- **Shell-first attachment** — Codex, Qwen, Gemini, Ollama, Hermes, OpenClaw, and OpenCode can run through sovereign memory without native tools
+- **Assurance surfaces** — secure-state verification, portability audit, readiness reporting, live trials, and synthetic evaluation
 - **Plain markdown storage** — your data is always yours, always readable
-- **~6MB binary** — download, configure, done
+- **Single stripped binary** — compact enough to deploy quickly without infrastructure theater
 
 ## Why The Animal Inspiration Matters
 
@@ -90,7 +92,7 @@ The recent memory redesign was not inspired by animals because it sounded poetic
 
 ## Install
 
-The product name is **Homing**. The package, binary, and release artifacts are still named `modus-memory` while the public rename rolls through distribution.
+The Homing release line begins at **v0.5.0**. The command, package, and release artifacts remain `modus-memory` for compatibility.
 
 ### Download binary
 
@@ -379,7 +381,7 @@ Your AI client now has 11 memory tools. Ask it to:
 ```bash
 modus-memory health
 
-# modus-memory 0.1.0
+# modus-memory 0.5.0
 # Vault: /Users/you/vault
 # Documents: 847
 # Facts: 234 total, 230 active
@@ -391,14 +393,15 @@ modus-memory health
 | | Free | Pro ($10/mo) |
 |---|---|---|
 | Documents | Up to 1,000 | Unlimited |
-| BM25 search | Yes | Yes |
-| Read / write / list | Yes | Yes |
-| Memory facts | Yes | Yes |
-| FSRS decay + reinforcement | — | Yes |
-| Cross-referencing | — | Yes |
-| Librarian query expansion | Yes | Yes |
+| Core MCP tools | 22 | 22 |
+| Route-aware retrieval | Yes | Yes |
+| Episode store + recall receipts | Yes | Yes |
+| Governance review flows | Yes | Yes |
+| Secure-state, readiness, trials, portability | Yes | Yes |
 | Khoj import | Yes | Yes |
-| Priority support | — | Yes |
+| Connected graph query (`vault_connected`) | — | Yes |
+| FSRS reinforcement + decay | — | Yes |
+| Tuning + training surfaces | — | Yes |
 
 ```bash
 # Buy Pro
@@ -414,25 +417,53 @@ modus-memory status
 modus-memory refresh
 ```
 
-Free tier is fully functional for personal use. Pro unlocks the features that matter at scale: memory decay keeps your vault clean, cross-referencing surfaces connections you'd miss, and there's no document ceiling.
+Free is the full Homing core for local-first use. Pro removes the document ceiling and unlocks the higher-touch optimization and graph surfaces: explicit reinforcement, decay sweeps, tuning, training, and connected graph queries.
 
 ## Tools
 
-The `modus-memory` binary that currently ships Homing exposes 11 MCP tools (8 free + 3 Pro):
+The standalone `modus-memory` server now exposes **27 MCP tools** in total: **22 core tools** and **5 Pro extensions**.
 
-| Tool | Tier | Description |
-|------|------|-------------|
-| `vault_search` | Free | BM25 full-text search with librarian query expansion and cross-reference hints |
-| `vault_read` | Free | Read any document by path |
-| `vault_write` | Free | Write a document with YAML frontmatter + markdown body |
-| `vault_list` | Free | List documents in a subdirectory with optional filters |
-| `vault_status` | Free | Vault statistics — document counts, index size, cross-ref stats |
-| `memory_facts` | Free | List memory facts, optionally filtered by subject |
-| `memory_search` | Free | Search memory facts with automatic FSRS reinforcement on recall |
-| `memory_store` | Free | Store a new memory fact (subject/predicate/value) |
-| `memory_reinforce` | **Pro** | Explicitly reinforce a memory — increases stability, decreases difficulty |
-| `memory_decay_facts` | **Pro** | Run FSRS decay sweep — naturally forgets stale memories |
-| `vault_connected` | **Pro** | Cross-reference query — find everything linked to a subject, tag, or entity |
+### Core Retrieval And Storage
+
+- `vault_search`
+- `vault_read`
+- `vault_write`
+- `vault_list`
+- `vault_status`
+- `memory_facts`
+- `memory_episode_store`
+- `memory_search`
+- `memory_store`
+- `memory_learn`
+- `memory_trace`
+
+### Governance And Maintenance
+
+- `memory_maintain`
+- `memory_hot_transition_propose`
+- `memory_temporal_transition_propose`
+- `memory_elder_transition_propose`
+
+### Assurance And Evaluation
+
+- `memory_secure_state`
+- `memory_evaluate`
+- `memory_readiness`
+- `memory_trial_run`
+
+### Portability
+
+- `memory_portability_audit`
+- `memory_portability_queue`
+- `memory_portability_archive`
+
+### Pro Extensions
+
+- `memory_reinforce`
+- `memory_decay_facts`
+- `memory_tune`
+- `memory_train`
+- `vault_connected`
 
 ## The Librarian Pattern
 
@@ -493,7 +524,8 @@ Files live in `~/vault/` (configurable with `--vault` or `MODUS_VAULT_DIR`). Bac
 - **BM25** with field-level boosting (title 3x, subject 2x, tags 1.5x, body 1x)
 - **Tiered query cache** — exact hash match, then Jaccard fuzzy match
 - **Librarian expansion** — synonyms and related terms broaden recall
-- **Cross-reference hints** — search results include connected documents from other categories
+- **Route-aware narrowing** — retrieval can anchor by subject, mission, office, work item, lineage, environment, time band, and cue terms
+- **Recall receipts** — successful recall can write durable evidence of the query, adapter, selected paths, and linked surfaces
 
 ### Memory Decay (FSRS)
 
@@ -509,7 +541,35 @@ R(t) = (1 + t/(9*S))^(-1)
 
 High-importance facts decay slowly (180-day stability). Low-importance facts fade in 2 weeks. Every search hit automatically reinforces matching facts. Memories that matter survive. Noise fades.
 
-### Cross-References
+### Episodic Identity
+
+Homing does not collapse everything into flat semantic claims.
+
+Episodes are first-class memory objects with:
+
+- `event_id`
+- `lineage_id`
+- `content_hash`
+- `event_kind`
+- `cue_terms`
+
+That lets semantic facts point back to durable event identity instead of pretending every remembered thing was born as a neat abstraction.
+
+### Governance And Review
+
+Memory changes are mediated through explicit review artifacts rather than silent rewrites.
+
+The runtime now supports governed proposals for:
+
+- hot-tier transitions
+- temporal transitions
+- elder-memory protection
+- structural linkage
+- replay-driven promotion
+
+This is the practical difference between “persistent notes” and a memory system that can be audited.
+
+### Structural Links And Connected Retrieval
 
 Documents are connected by shared subjects, tags, and entities. A search for "authentication" returns not just keyword matches, but also:
 
@@ -519,6 +579,18 @@ Documents are connected by shared subjects, tags, and entities. A search for "au
 - Connected learnings from past debugging
 
 No graph database. Just adjacency maps built at index time from your existing frontmatter.
+
+### Assurance
+
+The Homing runtime now includes system-level checks that were not present in the earlier release line:
+
+- secure-state manifest generation and verification
+- portability audit against external memory residue
+- readiness reporting
+- synthetic evaluation
+- live authored trial runs
+
+These surfaces make the memory subsystem inspectable as an operating component, not just a search feature.
 
 ## Migrating from Khoj
 
@@ -570,7 +642,7 @@ Create any structure you want. Homing indexes all `.md` files recursively.
 
 ## Performance
 
-Benchmarked on Apple Silicon (M1+) with 16,000+ documents:
+Representative measurements on Apple Silicon with a 16,000+ document corpus:
 
 | Operation | Time |
 |-----------|------|
@@ -578,6 +650,8 @@ Benchmarked on Apple Silicon (M1+) with 16,000+ documents:
 | Cached search | <100 microseconds |
 | Cold search | <5 milliseconds |
 | Memory start | ~2 seconds |
+
+These figures are intended as directional release facts, not a universal performance contract. Exact behavior depends on corpus size, storage, CPU, and build flags.
 
 ## Building from Source
 
