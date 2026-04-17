@@ -13,21 +13,21 @@
   <circle cx="20" cy="18" r="6" fill="#f85149" opacity="0.8"/>
   <circle cx="40" cy="18" r="6" fill="#e3b341" opacity="0.8"/>
   <circle cx="60" cy="18" r="6" fill="#7ee787" opacity="0.8"/>
-  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — modus-memory</text>
+  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — homing</text>
 
   <!-- Terminal content -->
   <g font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="13">
 
     <!-- Install -->
     <text x="20" y="60" fill="#8b949e">$ </text>
-    <text x="35" y="60" fill="#e6edf3">brew install GetModus/tap/modus-memory</text>
-    <text x="20" y="80" fill="#7ee787">&#x2713; modus-memory 0.3.0 installed</text>
+    <text x="35" y="60" fill="#e6edf3">brew install GetModus/tap/homing</text>
+    <text x="20" y="80" fill="#7ee787">&#x2713; homing 0.6.0 installed</text>
 
     <!-- Configure -->
     <text x="20" y="110" fill="#8b949e">$ </text>
-    <text x="35" y="110" fill="#e6edf3">modus-memory health</text>
-    <text x="20" y="130" fill="#58a6ff">modus-memory 0.3.0</text>
-    <text x="20" y="148" fill="#8b949e">Vault:      ~/modus/vault</text>
+    <text x="35" y="110" fill="#e6edf3">homing health</text>
+    <text x="20" y="130" fill="#58a6ff">homing 0.6.0</text>
+    <text x="20" y="148" fill="#8b949e">Vault:      ~/vault</text>
     <text x="20" y="166" fill="#8b949e">Documents:  1,847</text>
     <text x="20" y="184" fill="#8b949e">Facts:      423 total, 419 active</text>
     <text x="20" y="202" fill="#8b949e">Cross-refs: 156 subjects, 89 tags, 67 entities</text>

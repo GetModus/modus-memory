@@ -517,6 +517,421 @@ func RegisterVaultTools(srv *Server, v *vault.Vault) {
 
 	srv.AddTool("memory_store", "Store a new episodic memory fact.", memoryStoreSchema, memoryStoreHandler)
 
+	parseCaptureFacts := func(raw interface{}) []librarian.ExtractedFact {
+		rows, ok := raw.([]interface{})
+		if !ok {
+			return nil
+		}
+		out := make([]librarian.ExtractedFact, 0, len(rows))
+		seen := make(map[string]bool)
+		for _, row := range rows {
+			item, ok := row.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			fact := librarian.ExtractedFact{
+				Subject:   strings.TrimSpace(stringArg(item, "subject")),
+				Predicate: strings.TrimSpace(stringArg(item, "predicate")),
+				Value:     strings.TrimSpace(stringArg(item, "value")),
+			}
+			if fact.Subject == "" || fact.Predicate == "" || fact.Value == "" {
+				continue
+			}
+			key := strings.ToLower(fact.Subject + "\x00" + fact.Predicate + "\x00" + fact.Value)
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			out = append(out, fact)
+		}
+		return out
+	}
+
+	normalizeCapturePolicy := func(value string) string {
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "minimal", "strict", "everything":
+			return strings.ToLower(strings.TrimSpace(value))
+		default:
+			return "balanced"
+		}
+	}
+
+	hasDurableCaptureSignal := func(text string) bool {
+		text = strings.ToLower(strings.TrimSpace(text))
+		if text == "" {
+			return false
+		}
+		signals := []string{
+			"i prefer", "prefers ", "preference", "always ", "never ",
+			"do not ", "don't ", "from now on", "we decided", "decided ",
+			"decision", "rename", "renamed ", "codename", "should always",
+			"workflow", "rule", "policy", "correction", "instead of",
+			"wants ", "likes ", "dislikes ", "constraint", "requirement",
+		}
+		for _, signal := range signals {
+			if strings.Contains(text, signal) {
+				return true
+			}
+		}
+		return false
+	}
+
+	defaultCaptureImportance := func(eventKind, requested string) string {
+		if strings.TrimSpace(requested) != "" {
+			return requested
+		}
+		switch strings.ToLower(strings.TrimSpace(eventKind)) {
+		case "decision", "correction":
+			return "high"
+		default:
+			return "medium"
+		}
+	}
+
+	defaultCaptureTemperature := func(eventKind, requested string, durable bool) string {
+		if strings.TrimSpace(requested) != "" {
+			return requested
+		}
+		switch strings.ToLower(strings.TrimSpace(eventKind)) {
+		case "decision", "correction":
+			return "hot"
+		}
+		if durable {
+			return "hot"
+		}
+		return "warm"
+	}
+
+	decideCapture := func(policy string, actionableEvent, durableSignal, structuredContext, explicitFacts, meaningfulText bool, factCount int) (string, string, bool, bool) {
+		switch policy {
+		case "everything":
+			storeEpisode := meaningfulText || structuredContext || factCount > 0
+			storeFacts := factCount > 0
+			switch {
+			case storeEpisode && storeFacts:
+				return "episode_and_facts", "everything policy stores both the turn trace and extracted facts", true, true
+			case storeEpisode:
+				return "episode_only", "everything policy stores the turn trace even without fact candidates", true, false
+			default:
+				return "skip", "turn was too thin to store even under everything policy", false, false
+			}
+		case "strict":
+			storeFacts := factCount > 0 && (explicitFacts || actionableEvent || durableSignal)
+			storeEpisode := actionableEvent || (storeFacts && meaningfulText)
+			switch {
+			case storeEpisode && storeFacts:
+				return "episode_and_facts", "strict policy found a durable event with admissible facts", true, true
+			case storeEpisode:
+				return "episode_only", "strict policy kept the event trace but did not admit semantic facts", true, false
+			case storeFacts:
+				return "facts_only", "strict policy admitted explicit or strongly-signaled facts only", false, true
+			default:
+				return "skip", "strict policy found no durable signal worth persisting", false, false
+			}
+		case "minimal":
+			storeFacts := explicitFacts && factCount > 0
+			storeEpisode := actionableEvent && meaningfulText
+			switch {
+			case storeEpisode && storeFacts:
+				return "episode_and_facts", "minimal policy kept the event trace and explicit facts", true, true
+			case storeEpisode:
+				return "episode_only", "minimal policy kept only the event trace", true, false
+			case storeFacts:
+				return "facts_only", "minimal policy stores only explicitly supplied facts", false, true
+			default:
+				return "skip", "minimal policy skips turns without explicit facts or a strong event kind", false, false
+			}
+		default:
+			storeFacts := factCount > 0 && (explicitFacts || durableSignal || actionableEvent || structuredContext)
+			storeEpisode := actionableEvent || storeFacts || (structuredContext && meaningfulText && durableSignal)
+			switch {
+			case storeEpisode && storeFacts:
+				return "episode_and_facts", "balanced policy found enough durable signal to keep both trace and facts", true, true
+			case storeEpisode:
+				return "episode_only", "balanced policy kept the event trace but no semantic facts survived admission", true, false
+			case storeFacts:
+				return "facts_only", "balanced policy admitted facts without keeping the full turn trace", false, true
+			default:
+				return "skip", "balanced policy found no durable signal worth persisting", false, false
+			}
+		}
+	}
+
+	memoryCaptureHandler := func(args map[string]interface{}) (string, error) {
+		text := stringArg(args, "text")
+		if text == "" {
+			return "", fmt.Errorf("text is required")
+		}
+
+		storeEpisodeAllowed := true
+		if value, ok := args["store_episode"].(bool); ok {
+			storeEpisodeAllowed = value
+		}
+		extractFactsAllowed := true
+		if value, ok := args["extract_facts"].(bool); ok {
+			extractFactsAllowed = value
+		}
+		dryRun := false
+		if value, ok := args["dry_run"].(bool); ok {
+			dryRun = value
+		}
+
+		source := stringArg(args, "source")
+		if source == "" {
+			source = "mcp capture"
+		}
+		sourceRef := stringArg(args, "source_ref")
+		eventKind := stringArg(args, "event_kind")
+		if eventKind == "" {
+			eventKind = "interaction"
+		}
+		subject := stringArg(args, "subject")
+		lineageID := stringArg(args, "lineage_id")
+		mission := stringArg(args, "mission")
+		workItemID := stringArg(args, "work_item_id")
+		environment := stringArg(args, "environment")
+		policy := normalizeCapturePolicy(stringArg(args, "policy"))
+		explicitImportance := stringArg(args, "importance")
+		confidence := 0.8
+		if value, ok := args["confidence"].(float64); ok && value > 0 {
+			confidence = value
+		}
+		maxFacts := 5
+		if value, ok := args["max_facts"].(float64); ok && int(value) > 0 {
+			maxFacts = int(value)
+		}
+
+		relatedFactPaths := stringSliceArg(args["related_fact_paths"])
+		relatedEpisodePaths := stringSliceArg(args["related_episode_paths"])
+		relatedEntityRefs := stringSliceArg(args["related_entity_refs"])
+		relatedMissionRefs := stringSliceArg(args["related_mission_refs"])
+		cueTerms := stringSliceArg(args["cue_terms"])
+		sourceRefs := stringSliceArg(args["source_refs"])
+
+		explicitFacts := parseCaptureFacts(args["facts"])
+		actionableEvent := false
+		switch strings.ToLower(strings.TrimSpace(eventKind)) {
+		case "decision", "correction", "synthesis":
+			actionableEvent = true
+		}
+		durableSignal := hasDurableCaptureSignal(text)
+		structuredContext := subject != "" || mission != "" || workItemID != "" || environment != ""
+		meaningfulText := len(strings.Fields(text)) >= 6
+		candidateForExtraction := len(explicitFacts) > 0 || policy == "everything" || actionableEvent || durableSignal || structuredContext
+
+		facts := explicitFacts
+		factSource := "explicit"
+		if len(facts) == 0 && extractFactsAllowed && candidateForExtraction {
+			facts = librarian.ExtractFacts(text)
+			factSource = "librarian"
+		}
+		if len(facts) > maxFacts {
+			facts = facts[:maxFacts]
+		}
+
+		decision, reason, storeEpisode, storeFacts := decideCapture(policy, actionableEvent, durableSignal, structuredContext, len(explicitFacts) > 0, meaningfulText, len(facts))
+		if !storeEpisodeAllowed {
+			storeEpisode = false
+			if decision == "episode_only" {
+				decision = "skip"
+			}
+			if decision == "episode_and_facts" {
+				if storeFacts {
+					decision = "facts_only"
+				} else {
+					decision = "skip"
+				}
+			}
+		}
+		if !extractFactsAllowed && len(explicitFacts) == 0 {
+			storeFacts = false
+			if decision == "facts_only" {
+				decision = "skip"
+			}
+			if decision == "episode_and_facts" {
+				if storeEpisode {
+					decision = "episode_only"
+				} else {
+					decision = "skip"
+				}
+			}
+		}
+
+		importance := defaultCaptureImportance(eventKind, explicitImportance)
+		memoryTemperature := defaultCaptureTemperature(eventKind, stringArg(args, "memory_temperature"), durableSignal || actionableEvent)
+
+		payload := map[string]interface{}{
+			"status":                "captured",
+			"policy":                policy,
+			"decision":              decision,
+			"reason":                reason,
+			"dry_run":               dryRun,
+			"candidate_for_capture": candidateForExtraction,
+			"signals": map[string]interface{}{
+				"actionable_event":   actionableEvent,
+				"durable_text":       durableSignal,
+				"structured_context": structuredContext,
+				"meaningful_text":    meaningfulText,
+				"explicit_facts":     len(explicitFacts) > 0,
+			},
+			"store_episode":       storeEpisode,
+			"store_facts":         storeFacts,
+			"episode_stored":      false,
+			"episode_path":        "",
+			"event_id":            "",
+			"lineage_id":          lineageID,
+			"fact_source":         factSource,
+			"facts_extracted":     len(facts),
+			"facts_stored":        0,
+			"stored_fact_paths":   []string{},
+			"provided_fact_count": len(explicitFacts),
+			"importance":          importance,
+			"memory_temperature":  memoryTemperature,
+		}
+
+		if decision == "skip" {
+			payload["status"] = "no_op"
+			if dryRun {
+				payload["status"] = "dry_run"
+			}
+			return marshalIndented(payload)
+		}
+		if dryRun {
+			payload["status"] = "dry_run"
+			return marshalIndented(payload)
+		}
+
+		var sourceEventID string
+		if storeEpisode {
+			episodePath, storedEventID, err := mem.StoreEpisode(text, vault.EpisodeWriteAuthority{
+				ProducingOffice:     "main_brain",
+				ProducingSubsystem:  "mcp_memory_capture",
+				StaffingContext:     "mcp",
+				AuthorityScope:      ledger.ScopeRuntimeMemoryStore,
+				TargetDomain:        "memory/episodes",
+				Source:              source,
+				SourceRef:           sourceRef,
+				SourceRefs:          sourceRefs,
+				ProofRef:            "mcp-memory-capture",
+				PromotionStatus:     "observed",
+				EventID:             stringArg(args, "event_id"),
+				LineageID:           lineageID,
+				EventKind:           eventKind,
+				Subject:             subject,
+				Mission:             mission,
+				WorkItemID:          workItemID,
+				Environment:         environment,
+				CueTerms:            cueTerms,
+				RelatedFactPaths:    relatedFactPaths,
+				RelatedEpisodePaths: relatedEpisodePaths,
+				RelatedEntityRefs:   relatedEntityRefs,
+				RelatedMissionRefs:  relatedMissionRefs,
+				AllowApproval:       true,
+			})
+			if err != nil {
+				return "", err
+			}
+			sourceEventID = storedEventID
+			payload["episode_stored"] = true
+			payload["episode_path"] = episodePath
+			payload["event_id"] = storedEventID
+			if strings.TrimSpace(lineageID) == "" {
+				payload["lineage_id"] = storedEventID
+			}
+		}
+
+		storedFactPaths := make([]string, 0, len(facts))
+		if storeFacts {
+			effectiveLineageID := lineageID
+			if effectiveLineageID == "" {
+				effectiveLineageID = sourceEventID
+			}
+			for _, fact := range facts {
+				if strings.TrimSpace(fact.Subject) == "" || strings.TrimSpace(fact.Predicate) == "" || strings.TrimSpace(fact.Value) == "" {
+					continue
+				}
+				path, err := mem.StoreFact(fact.Subject, fact.Predicate, fact.Value, confidence, importance, vault.FactWriteAuthority{
+					ProducingOffice:     "main_brain",
+					ProducingSubsystem:  "mcp_memory_capture",
+					StaffingContext:     "mcp",
+					AuthorityScope:      ledger.ScopeRuntimeMemoryStore,
+					TargetDomain:        "memory/facts",
+					Source:              source,
+					SourceRef:           sourceRef,
+					SourceRefs:          sourceRefs,
+					SourceEventID:       sourceEventID,
+					LineageID:           effectiveLineageID,
+					Mission:             mission,
+					WorkItemID:          workItemID,
+					Environment:         environment,
+					CueTerms:            cueTerms,
+					MemoryTemperature:   memoryTemperature,
+					RelatedFactPaths:    relatedFactPaths,
+					RelatedEpisodePaths: relatedEpisodePaths,
+					RelatedEntityRefs:   relatedEntityRefs,
+					RelatedMissionRefs:  relatedMissionRefs,
+					AllowApproval:       true,
+					PromotionStatus:     "proposed",
+					ProofRef:            "mcp-memory-capture",
+				})
+				if err != nil {
+					return "", err
+				}
+				storedFactPaths = append(storedFactPaths, path)
+			}
+		}
+
+		payload["facts_stored"] = len(storedFactPaths)
+		payload["stored_fact_paths"] = storedFactPaths
+		return marshalIndented(payload)
+	}
+
+	memoryCaptureSchema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"text":               map[string]interface{}{"type": "string", "description": "Turn transcript, meeting note, or interaction summary to capture into memory"},
+			"subject":            map[string]interface{}{"type": "string", "description": "Primary subject for the episodic capture"},
+			"event_kind":         map[string]interface{}{"type": "string", "description": "interaction, decision, observation, correction, synthesis"},
+			"source":             map[string]interface{}{"type": "string", "description": "Human-readable provenance label"},
+			"source_ref":         map[string]interface{}{"type": "string", "description": "Canonical source reference for this turn"},
+			"source_refs":        map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"event_id":           map[string]interface{}{"type": "string", "description": "Optional explicit event identifier"},
+			"lineage_id":         map[string]interface{}{"type": "string", "description": "Optional shared lineage identifier"},
+			"mission":            map[string]interface{}{"type": "string", "description": "Optional mission route anchor"},
+			"work_item_id":       map[string]interface{}{"type": "string", "description": "Optional work-item lineage identifier"},
+			"environment":        map[string]interface{}{"type": "string", "description": "Optional operating context"},
+			"cue_terms":          map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"importance":         map[string]interface{}{"type": "string", "enum": []string{"critical", "high", "medium", "low"}},
+			"confidence":         map[string]interface{}{"type": "number", "description": "Default confidence applied to stored facts"},
+			"memory_temperature": map[string]interface{}{"type": "string", "enum": []string{"hot", "warm"}},
+			"policy":             map[string]interface{}{"type": "string", "enum": []string{"minimal", "balanced", "strict", "everything"}, "description": "Admission policy for deciding whether this turn becomes an episode, facts, both, or nothing"},
+			"store_episode":      map[string]interface{}{"type": "boolean", "description": "Allow episodic capture. Defaults to true."},
+			"extract_facts":      map[string]interface{}{"type": "boolean", "description": "Allow automatic fact extraction when explicit facts are not supplied. Defaults to true."},
+			"dry_run":            map[string]interface{}{"type": "boolean", "description": "Evaluate the policy and return the decision without writing anything"},
+			"max_facts":          map[string]interface{}{"type": "integer", "description": "Maximum number of extracted facts to persist. Defaults to 5."},
+			"facts": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"subject":   map[string]interface{}{"type": "string"},
+						"predicate": map[string]interface{}{"type": "string"},
+						"value":     map[string]interface{}{"type": "string"},
+					},
+					"required": []string{"subject", "predicate", "value"},
+				},
+				"description": "Optional explicit fact candidates. If omitted and extract_facts is true, Homing may extract them from the turn text.",
+			},
+			"related_fact_paths":    map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"related_episode_paths": map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"related_entity_refs":   map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+			"related_mission_refs":  map[string]interface{}{"type": "array", "items": map[string]interface{}{"type": "string"}},
+		},
+		"required": []string{"text"},
+	}
+
+	srv.AddTool("memory_capture", "Capture a turn in one pass with admission policy: evaluate the text, decide whether it deserves durable memory, then store an episode, facts, both, or nothing.", memoryCaptureSchema, memoryCaptureHandler)
+
 	memoryEpisodeStoreHandler := func(args map[string]interface{}) (string, error) {
 		body, _ := args["body"].(string)
 		eventKind, _ := args["event_kind"].(string)

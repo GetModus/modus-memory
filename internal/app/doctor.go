@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"fmt"
@@ -10,13 +10,10 @@ import (
 	"github.com/GetModus/modus-memory/internal/markdown"
 )
 
-// runDoctor performs a diagnostic scan of the vault and reports problems.
-// Designed for post-import validation — especially useful after Khoj migration.
 func runDoctor(vaultDir string) {
-	fmt.Printf("modus-memory doctor %s\n", version)
+	fmt.Printf("%s doctor %s\n", commandName(), Version)
 	fmt.Printf("Vault: %s\n\n", vaultDir)
 
-	// Build index to get stats
 	idx, err := index.Build(vaultDir, "")
 	if err != nil {
 		fmt.Printf("FAIL: cannot build index: %v\n", err)
@@ -30,7 +27,6 @@ func runDoctor(vaultDir string) {
 	fmt.Printf("Facts: %d total, %d active, %d archived\n", totalFacts, activeFacts, totalFacts-activeFacts)
 	fmt.Printf("Cross-refs: %d subjects, %d tags, %d entities\n\n", subjects, tags, entities)
 
-	// Scan all markdown files for diagnostics
 	docs, err := markdown.ScanDir(vaultDir)
 	if err != nil {
 		fmt.Printf("FAIL: cannot scan vault: %v\n", err)
@@ -39,7 +35,6 @@ func runDoctor(vaultDir string) {
 
 	var findings []finding
 
-	// Check 1: Facts missing required fields
 	missingSubject := 0
 	missingPredicate := 0
 	for _, doc := range docs {
@@ -60,7 +55,6 @@ func runDoctor(vaultDir string) {
 		findings = append(findings, finding{"WARN", fmt.Sprintf("%d facts missing 'predicate' field", missingPredicate)})
 	}
 
-	// Check 2: Duplicate subjects (same subject + predicate)
 	type factKey struct{ subject, predicate string }
 	factCounts := make(map[factKey]int)
 	for _, doc := range docs {
@@ -83,7 +77,6 @@ func runDoctor(vaultDir string) {
 		findings = append(findings, finding{"WARN", fmt.Sprintf("%d duplicate subject+predicate pairs", dupes)})
 	}
 
-	// Check 3: Empty documents (frontmatter but no body)
 	emptyDocs := 0
 	for _, doc := range docs {
 		if strings.TrimSpace(doc.Body) == "" {
@@ -94,7 +87,6 @@ func runDoctor(vaultDir string) {
 		findings = append(findings, finding{"INFO", fmt.Sprintf("%d documents with empty body", emptyDocs)})
 	}
 
-	// Check 4: Documents without frontmatter
 	noFrontmatter := 0
 	for _, doc := range docs {
 		if len(doc.Frontmatter) == 0 {
@@ -105,7 +97,6 @@ func runDoctor(vaultDir string) {
 		findings = append(findings, finding{"INFO", fmt.Sprintf("%d documents without frontmatter", noFrontmatter)})
 	}
 
-	// Check 5: Contradictions — same subject, same predicate, different values
 	type factEntry struct {
 		value string
 		path  string
@@ -140,7 +131,6 @@ func runDoctor(vaultDir string) {
 		if len(entries) < 2 {
 			continue
 		}
-		// Check if values actually differ
 		seen := make(map[string]bool)
 		for _, e := range entries {
 			seen[e.value] = true
@@ -148,8 +138,7 @@ func runDoctor(vaultDir string) {
 		if len(seen) > 1 {
 			contradictions++
 			if len(contradictionDetails) < 5 {
-				contradictionDetails = append(contradictionDetails,
-					fmt.Sprintf("  %s / %s (%d conflicting values)", key.subject, key.predicate, len(seen)))
+				contradictionDetails = append(contradictionDetails, fmt.Sprintf("  %s / %s (%d conflicting values)", key.subject, key.predicate, len(seen)))
 			}
 		}
 	}
@@ -157,7 +146,6 @@ func runDoctor(vaultDir string) {
 		findings = append(findings, finding{"WARN", fmt.Sprintf("%d potential contradictions (same subject+predicate, different values)", contradictions)})
 	}
 
-	// Check 6: Vault structure — expected directories
 	expectedDirs := []string{"memory/facts", "brain", "atlas"}
 	for _, dir := range expectedDirs {
 		full := fmt.Sprintf("%s/%s", vaultDir, dir)
@@ -166,12 +154,10 @@ func runDoctor(vaultDir string) {
 		}
 	}
 
-	// Check 7: Document distribution by directory
 	dirCounts := make(map[string]int)
 	for _, doc := range docs {
 		parts := strings.SplitN(doc.Path, string(os.PathSeparator), 3)
 		if len(parts) >= 2 {
-			// Get top-level dir relative to vault
 			rel := doc.Path
 			if idx := strings.LastIndex(rel, vaultDir); idx >= 0 {
 				rel = rel[idx+len(vaultDir)+1:]
@@ -183,7 +169,6 @@ func runDoctor(vaultDir string) {
 		}
 	}
 
-	// Print findings
 	fmt.Println("─── Diagnostics ───")
 	if len(findings) == 0 {
 		fmt.Println("No issues found.")
@@ -206,7 +191,6 @@ func runDoctor(vaultDir string) {
 		}
 	}
 
-	// Print distribution
 	if len(dirCounts) > 0 {
 		fmt.Println("\n─── Distribution ───")
 		type dirStat struct {

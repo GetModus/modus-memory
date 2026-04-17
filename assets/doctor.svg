@@ -6,14 +6,14 @@
   <circle cx="20" cy="18" r="6" fill="#f85149" opacity="0.8"/>
   <circle cx="40" cy="18" r="6" fill="#e3b341" opacity="0.8"/>
   <circle cx="60" cy="18" r="6" fill="#7ee787" opacity="0.8"/>
-  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — modus-memory doctor</text>
+  <text x="400" y="23" font-family="monospace" font-size="12" fill="#8b949e" text-anchor="middle">Terminal — homing doctor</text>
 
   <g font-family="'SF Mono', 'Fira Code', monospace" font-size="13">
     <text x="20" y="60" fill="#8b949e">$ </text>
-    <text x="35" y="60" fill="#e6edf3">modus-memory doctor</text>
+    <text x="35" y="60" fill="#e6edf3">homing doctor</text>
 
-    <text x="20" y="85" fill="#58a6ff">modus-memory doctor 0.3.0</text>
-    <text x="20" y="103" fill="#8b949e">Vault: /Users/you/modus/vault</text>
+    <text x="20" y="85" fill="#58a6ff">homing doctor 0.6.0</text>
+    <text x="20" y="103" fill="#8b949e">Vault: /Users/you/vault</text>
 
     <text x="20" y="128" fill="#8b949e">Documents:  847</text>
     <text x="20" y="146" fill="#8b949e">Facts:      234 total, 234 active, 0 archived</text>

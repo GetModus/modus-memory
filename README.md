@@ -5,7 +5,7 @@
 <p align="center">
   <a href="#install"><strong>Install</strong></a> ·
   <a href="#demo"><strong>Demo</strong></a> ·
-  <a href="docs/reference/release-notes-v0.5.0-homing.md"><strong>Release Notes</strong></a> ·
+  <a href="docs/reference/release-notes-v0.6.0-homing.md"><strong>Release Notes</strong></a> ·
   <a href="#attach-to-shells-harnesses-and-agents"><strong>Attach</strong></a> ·
   <a href="#why-the-name-changed"><strong>Name</strong></a> ·
   <a href="#quickstart"><strong>Quickstart</strong></a> ·
@@ -18,7 +18,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/MCP-compatible-blue?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj48Y2lyY2xlIGN4PSIxMCIgY3k9IjEwIiByPSI4IiBmaWxsPSIjNThhNmZmIi8+PC9zdmc+" alt="MCP Compatible"/>
   <img src="https://img.shields.io/badge/platform-macOS%20·%20Linux%20·%20Windows-lightgrey?style=flat-square" alt="Platform"/>
-  <img src="https://img.shields.io/badge/release-v0.5.0-green?style=flat-square" alt="Release v0.5.0"/>
+  <img src="https://img.shields.io/badge/release-v0.6.0-green?style=flat-square" alt="Release v0.6.0"/>
   <img src="https://img.shields.io/badge/runtime-~8MB%20stripped-green?style=flat-square" alt="Approximate stripped runtime size"/>
   <img src="https://img.shields.io/badge/storage-plain%20markdown-brightgreen?style=flat-square" alt="Plain markdown storage"/>
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"/>
@@ -28,11 +28,11 @@
 
 # Homing by MODUS
 
-**Homing** is the public product name for the `modus-memory` binary and module.
+**Homing** is the public product name and the primary binary for this sovereign memory runtime.
 
 It began as a local memory server. It is now a sovereign memory kernel for agents: route-aware retrieval, first-class episodes, durable recall receipts, governed review flows, shell-first carrier attachment, secure-state auditing, portability auditing, readiness reporting, and synthetic plus live evaluation.
 
-The name changed because the product changed. `modus-memory` remains the command, package, and release artifact for compatibility. **Homing by MODUS** is the product story we want strangers to understand immediately.
+The name changed because the product changed. `homing` is now the primary command. `modus-memory` remains supported as a compatibility alias, and the module path stays `github.com/GetModus/modus-memory`. **Homing by MODUS** is the product story we want strangers to understand immediately.
 
 One binary. No required database. No hosted control plane. Your memory lives on disk as files you can read, diff, grep, and back up with ordinary tools.
 
@@ -40,7 +40,7 @@ Not a chat-history graveyard. Not a black-box memory tax. Homing keeps agent con
 
 > **Verified for this release line: a stripped Apple Silicon build is about 7.7 MB, storage remains plain markdown, and the runtime stays local-first.**
 
-For the release walkthrough, start with [`docs/reference/release-notes-v0.5.0-homing.md`](docs/reference/release-notes-v0.5.0-homing.md). For the implementation deep dive, see [`docs/reference/homing-memory-update-2026-04.md`](docs/reference/homing-memory-update-2026-04.md).
+For the release walkthrough, start with [`docs/reference/release-notes-v0.6.0-homing.md`](docs/reference/release-notes-v0.6.0-homing.md). For the implementation deep dive, see [`docs/reference/homing-memory-update-2026-04.md`](docs/reference/homing-memory-update-2026-04.md).
 
 ## Demo
 
@@ -101,40 +101,33 @@ The recent memory redesign was not inspired by animals because it sounded poetic
 
 ## Install
 
-The Homing release line begins at **v0.5.0**. The command, package, and release artifacts remain `modus-memory` for compatibility.
+`v0.6.0` makes `homing` the primary binary while preserving `modus-memory` as a compatibility alias.
 
-### Download binary
-
-Grab the latest release for your platform from [Releases](https://github.com/GetModus/modus-memory/releases):
-
-| Platform | Architecture | Download |
-|----------|-------------|----------|
-| macOS | Apple Silicon (M1+) | `modus-memory-darwin-arm64` |
-| macOS | Intel | `modus-memory-darwin-amd64` |
-| Linux | x86_64 | `modus-memory-linux-amd64` |
-| Linux | ARM64 | `modus-memory-linux-arm64` |
-| Windows | x86_64 | `modus-memory-windows-amd64.exe` |
+### Primary install
 
 ```bash
-# macOS / Linux
-chmod +x modus-memory-*
-sudo mv modus-memory-* /usr/local/bin/modus-memory
+go install github.com/GetModus/modus-memory/cmd/homing@latest
+homing version
+```
 
-# Verify
+### Compatibility alias
+
+If an existing MCP client or script still expects the legacy command name:
+
+```bash
+go install github.com/GetModus/modus-memory/cmd/modus-memory@latest
 modus-memory version
 ```
 
-### Go install
+### Release artifacts
 
-```bash
-go install github.com/GetModus/modus-memory@latest
-```
+Release binaries live under [Releases](https://github.com/GetModus/modus-memory/releases). For this line, prefer `homing-*` artifacts when they are published. The compatibility alias remains buildable from source either way.
 
 ## Attach To Shells, Harnesses, And Agents
 
 There are two honest ways to use Homing.
 
-The public product name is **Homing**. The command name remains `modus-memory` for now.
+The public product name is **Homing**. The primary command is `homing`. The legacy alias `modus-memory` remains supported for compatibility.
 
 ### Lane 1: true memory client via MCP
 
@@ -145,12 +138,15 @@ Examples:
 - Claude Desktop
 - Claude Code MCP mode
 - Cursor MCP mode
+- Windsurf MCP mode
+- Codex app MCP mode
+- Antigravity MCP mode
 - any agent framework with real stdio MCP support
 
 In that case, point the client at:
 
 ```bash
-modus-memory --vault ~/vault
+homing --vault ~/vault
 ```
 
 ### Lane 2: sovereign attachment for plain shells
@@ -173,7 +169,7 @@ That means a plain shell can still operate under sovereign memory law even if it
 The raw product command is:
 
 ```bash
-modus-memory attach --carrier <carrier> --prompt "..."
+homing attach --carrier <carrier> --prompt "..."
 ```
 
 Inside the full MODUS OS repo, the equivalent command is:
@@ -210,12 +206,12 @@ modus-attach-carrier qwen "Review this patch for regressions."
 
 ### Direct memory governance from the shell
 
-When we do not want MCP involved at all, modus-memory can also create governed review artifacts directly from the command line.
+When we do not want MCP involved at all, Homing can also create governed review artifacts directly from the command line.
 
 Use a hot-tier proposal when a durable fact should be considered for automatic admission:
 
 ```bash
-modus-memory propose-hot \
+homing propose-hot \
   --fact-path memory/facts/general-preference.md \
   --temperature hot \
   --reason "This is durable operator context and belongs in the hot tier."
@@ -224,7 +220,7 @@ modus-memory propose-hot \
 Use a structural proposal when a fact should gain explicit links to adjacent evidence:
 
 ```bash
-modus-memory propose-structural \
+homing propose-structural \
   --fact-path memory/facts/modus-memory-system.md \
   --related-fact memory/facts/modus-memory-policy.md \
   --related-episode memory/episodes/019d8d94-...md \
@@ -232,13 +228,13 @@ modus-memory propose-structural \
   --related-mission "Memory Sovereignty" \
   --reason "This fact should carry its adjacent operator evidence explicitly."
 
-modus-memory propose-temporal \
+homing propose-temporal \
   --fact-path memory/facts/old-scout-lane.md \
   --status superseded \
   --superseded-by memory/facts/new-scout-lane.md \
   --reason "The newer staffing fact replaces this older lane."
 
-modus-memory propose-elder \
+homing propose-elder \
   --fact-path memory/facts/founding-covenant.md \
   --protection-class elder \
   --reason "This is durable constitutional memory and should not be buried by recency."
@@ -253,16 +249,16 @@ modus memory propose-temporal ...
 modus memory propose-elder ...
 ```
 
-When testing the full `modus` binary against a non-default vault, set `MODUS_VAULT_DIR=/path/to/vault` before invoking the command. The standalone `modus-memory` binary takes the vault path with `--vault /path/to/vault`.
+When testing the full `modus` binary against a non-default vault, set `MODUS_VAULT_DIR=/path/to/vault` before invoking the command. The standalone binaries take the vault path with `--vault /path/to/vault`.
 
 These commands do not rewrite memory directly. They create pending artifacts under `memory/maintenance/`. Review the artifact and update its `status` explicitly when the proposal is fit to become canonical.
 
 To inspect the current governance queue from the shell, use:
 
 ```bash
-modus-memory --vault /path/to/vault review-queue
-modus-memory --vault /path/to/vault review-queue --status all --json
-modus-memory --vault /path/to/vault resolve-review \
+homing --vault /path/to/vault review-queue
+homing --vault /path/to/vault review-queue --status all --json
+homing --vault /path/to/vault resolve-review \
   --status pending \
   --type candidate_hot_memory_transition \
   --fact-path memory/facts/mission.md \
@@ -275,33 +271,35 @@ modus-memory --vault /path/to/vault resolve-review \
 To inspect carrier readiness without live execution, use:
 
 ```bash
-modus-memory --vault /path/to/vault carrier-audit
-modus-memory --vault /path/to/vault carrier-audit --json
+homing --vault /path/to/vault carrier-audit
+homing --vault /path/to/vault carrier-audit --json
 ```
 
 To run a live sovereign-attachment probe against selected carriers, use:
 
 ```bash
-modus-memory --vault /path/to/vault carrier-probe --carriers codex --prompt "Reply with exactly: nominal."
-modus-memory --vault /path/to/vault carrier-probe --carriers codex,qwen --prompt "Summarize the current task in one sentence."
+homing --vault /path/to/vault carrier-probe --carriers codex --prompt "Reply with exactly: nominal."
+homing --vault /path/to/vault carrier-probe --carriers codex,qwen --prompt "Summarize the current task in one sentence."
 ```
 
 ### Which lane should you use
 
 | Client type | Recommended lane | Why |
 |-------------|------------------|-----|
-| MCP-capable desktop client | `modus-memory --vault ...` | The client can call memory tools directly |
-| CLI model shell | `modus-memory attach` or a wrapper | The shell usually has no memory tools of its own |
+| MCP-capable desktop client | `homing --vault ...` | The client can call memory tools directly |
+| CLI model shell | `homing attach` or a wrapper | The shell usually has no memory tools of its own |
 | External agent harness | wrapper or `modus memory attach` | Easier to make the harness call one stable command |
 | Closed GUI app with no hooks | none yet | It cannot be truly attached until it exposes an integration seam |
 
 ### Plain model shell vs. true memory client
 
-A **true memory client** can call memory tools directly and persist its own structured memory actions.
+A **true memory client** can call memory tools directly and persist structured memory actions when it actually chooses to do so.
 
 A **plain model shell** cannot. It only knows how to answer prompts. Those clients should be attached through the wrapper lane instead of pretending they are direct memory clients.
 
-This distinction matters in testing. A client can fail a direct-tool prompt and still be a perfectly valid sovereign carrier when run through `modus-memory attach` or the MODUS wrapper commands.
+This distinction matters in testing. A client can fail a direct-tool prompt and still be a perfectly valid sovereign carrier when run through `homing attach` or the MODUS wrapper commands.
+
+It also matters in product claims. Mounting Homing over MCP does **not** create automatic memory admission by itself. If a client such as Cursor does not call `memory_store`, `memory_episode_store`, or `memory_capture`, nothing durable is written.
 
 ### Carrier notes
 
@@ -317,8 +315,8 @@ Do not point a shell at a prompt file and hope for the best.
 
 Point the shell, harness, or agent runner at one of these:
 
-- `modus-memory --vault ...` when the client can mount tools
-- `modus-memory attach --carrier ...` when the client is a plain shell
+- `homing --vault ...` when the client can mount tools
+- `homing attach --carrier ...` when the client is a plain shell
 - a stable wrapper such as `modus-opencode` or `modus-openclaw` when you want a simple command name
 
 ## Quickstart
@@ -334,7 +332,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "memory": {
-      "command": "modus-memory",
+      "command": "homing",
       "args": ["--vault", "~/vault"]
     }
   }
@@ -346,7 +344,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 <summary><strong>Claude Code</strong></summary>
 
 ```bash
-claude mcp add memory -- modus-memory --vault ~/vault
+claude mcp add memory -- homing --vault ~/vault
 ```
 </details>
 
@@ -358,22 +356,40 @@ In Settings > MCP Servers, add:
 ```json
 {
   "memory": {
-    "command": "modus-memory",
+    "command": "homing",
     "args": ["--vault", "~/vault"]
   }
 }
 ```
+
+Then add a Cursor rule or project instruction so the model uses the memory surface deliberately. A strong default is:
+
+```text
+At the end of every turn, call memory_capture with policy "balanced" and a compact summary of the interaction.
+
+If the turn contains a durable preference, workflow rule, correction, decision, or recurring project fact, preserve it through memory_capture.
+
+Use memory_search before answering questions about prior preferences, decisions, or ongoing work.
+
+Do not assume memory is automatic just because the MCP server is connected.
+```
+
+Use `dry_run: true` on `memory_capture` if you want to inspect the admission decision without writing anything.
 </details>
 
 <details>
 <summary><strong>Any MCP client</strong></summary>
 
-modus-memory speaks [MCP](https://modelcontextprotocol.io) over stdio. Point any MCP-compatible client at the binary:
+homing speaks [MCP](https://modelcontextprotocol.io) over stdio. Point any MCP-compatible client at the binary:
 
 ```bash
-modus-memory --vault ~/vault
+homing --vault ~/vault
 ```
 </details>
+
+If your client exposes stdio MCP configuration, this same transport contract is the one used by Claude Desktop, Cursor, Windsurf, Codex app, Antigravity, and similar tool-aware shells. The exact settings screen varies. The protocol does not.
+
+If an existing client is already wired to `modus-memory`, you do not need to break that setup immediately. The compatibility alias remains supported.
 
 ### 2. Start remembering
 
@@ -383,14 +399,15 @@ Your AI client now has a full sovereign memory surface. Ask it to:
 "Remember that I prefer TypeScript over JavaScript for new projects"
 "What do you know about my coding preferences?"
 "Find everything related to the authentication refactor"
+"Capture this turn in memory with policy balanced"
 ```
 
 ### 3. Check health
 
 ```bash
-modus-memory health
+homing health
 
-# modus-memory 0.5.0
+# homing 0.6.0
 # Vault: /Users/you/vault
 # Documents: 847
 # Facts: 234 total, 230 active
@@ -412,11 +429,11 @@ There is no paid tier in the current product posture. The full standalone runtim
 - synthetic evaluation and live trials
 - reinforcement, decay, tuning, training, and connected graph queries
 
-The compatibility commands `modus-memory activate`, `refresh`, `deactivate`, and `status` remain in the binary, but they now simply report that no license is required.
+The compatibility commands `homing activate`, `refresh`, `deactivate`, and `status` remain in the binary, but they now simply report that no license is required.
 
 ## Tools
 
-The standalone `modus-memory` server now exposes **27 MCP tools**, all available to every user.
+The standalone Homing server now exposes **28 MCP tools**, all available to every user.
 
 ### Core Retrieval And Storage
 
@@ -426,6 +443,7 @@ The standalone `modus-memory` server now exposes **27 MCP tools**, all available
 - `vault_list`
 - `vault_status`
 - `memory_facts`
+- `memory_capture`
 - `memory_episode_store`
 - `memory_search`
 - `memory_store`
@@ -522,7 +540,7 @@ User prefers React with TypeScript for all frontend projects.
 Server components when possible, Tailwind for styling.
 ```
 
-Files live in `~/vault/` (configurable with `--vault` or `MODUS_VAULT_DIR`). Back them up with git. Edit them in VS Code. Grep them from the terminal. They're just files.
+Files live in `~/vault/` by default, configurable with `--vault`, `HOMING_VAULT_DIR`, or the compatibility alias `MODUS_VAULT_DIR`. Back them up with git. Edit them in VS Code. Grep them from the terminal. They're just files.
 
 ### Search
 
@@ -605,10 +623,10 @@ These surfaces make the memory subsystem inspectable as an operating component, 
 
 ```bash
 # From the Khoj export ZIP
-modus-memory import khoj ~/Downloads/khoj-conversations.zip
+homing import khoj ~/Downloads/khoj-conversations.zip
 
 # Or from raw JSON
-modus-memory import khoj conversations.json
+homing import khoj conversations.json
 ```
 
 This converts:
@@ -629,7 +647,7 @@ The import is idempotent — safe to run multiple times.
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--vault` | `MODUS_VAULT_DIR` | `~/modus/vault` | Vault directory path |
+| `--vault` | `HOMING_VAULT_DIR` or `MODUS_VAULT_DIR` | `~/vault` | Vault directory path |
 
 ## Vault Structure
 
@@ -665,10 +683,15 @@ These figures are intended as directional release facts, not a universal perform
 ```bash
 git clone https://github.com/GetModus/modus-memory.git
 cd modus-memory
-go build -ldflags="-s -w" -o modus-memory .
 
-# Cross-compile
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o modus-memory-linux .
+# Primary binary
+go build -ldflags="-s -w" -o homing ./cmd/homing
+
+# Compatibility alias
+go build -ldflags="-s -w" -o modus-memory ./cmd/modus-memory
+
+# Cross-compile primary binary
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o homing-linux-amd64 ./cmd/homing
 ```
 
 ## Companion: WRAITH

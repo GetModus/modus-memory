@@ -1,11 +1,10 @@
-package main
+package app
 
 import (
 	"strings"
 	"unicode"
 )
 
-// stopWords are filtered from entity extraction.
 var stopWords = map[string]bool{
 	"a": true, "an": true, "the": true, "and": true, "or": true,
 	"but": true, "in": true, "on": true, "at": true, "to": true,
@@ -26,9 +25,6 @@ var stopWords = map[string]bool{
 	"one": true, "two": true, "more": true, "than": true, "very": true,
 }
 
-// extractTitleEntities pulls meaningful terms from a title string.
-// Returns up to maxEntities cleaned tokens, filtering stop words,
-// punctuation, short tokens, and pure numerics.
 func extractTitleEntities(title string, maxEntities int) []string {
 	words := strings.Fields(title)
 	seen := make(map[string]bool)
@@ -61,7 +57,6 @@ func extractTitleEntities(title string, maxEntities int) []string {
 	return entities
 }
 
-// isNumericToken returns true if s contains only digits and date separators.
 func isNumericToken(s string) bool {
 	for _, r := range s {
 		if !unicode.IsDigit(r) && r != '-' && r != '/' && r != '.' {

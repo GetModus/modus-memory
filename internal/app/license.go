@@ -1,10 +1,7 @@
-package main
+package app
 
 import "fmt"
 
-// licenseResult remains as a compatibility surface for older command flows.
-// Homing is now free for everyone, so all features are enabled without license
-// activation.
 type licenseResult struct {
 	tier   string
 	valid  bool
