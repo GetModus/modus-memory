@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.6.0 — Homing Becomes The Primary Binary
+
+`v0.6.0` makes the public rename operational instead of merely descriptive.
+
+This release keeps the module path at `github.com/GetModus/modus-memory`, but it promotes `homing` to the primary binary and command surface, keeps `modus-memory` as a compatibility alias, adds policy-driven turn capture through `memory_capture`, and tightens the docs around what is and is not automatic when an MCP client connects.
+
+### Added
+
+- First-class `homing` binary under `cmd/homing`
+- `memory_capture` MCP tool with policy-driven admission, optional `dry_run`, episodic capture, and fact capture in a single call
+- MCP protocol coverage for `initialize`, `tools/list`, and `tools/call` around the new capture flow
+- Explicit client guidance for MCP-capable desktops and harnesses to use `memory_capture` rather than assuming automatic admission
+
+### Changed
+
+- Version advanced to `0.6.0`
+- `homing` is now the primary binary and recommended install surface
+- `modus-memory` remains buildable as a compatibility alias for existing scripts and MCP configurations
+- The standalone MCP surface now includes 28 tools available to every user
+- README, command docs, and release notes now describe the rename and the capture-policy lane directly
+
+### Compatibility
+
+- Module path remains `github.com/GetModus/modus-memory`
+- Existing `modus-memory --vault ...` integrations continue to work
+- Existing shell wrappers and carrier attachment flows continue to work
+
+### Verification
+
+```bash
+GOCACHE=/tmp/modus-memory/.gocache GOMODCACHE=/tmp/modus-memory/.gomodcache go test ./...
+GOCACHE=/tmp/modus-memory/.gocache GOMODCACHE=/tmp/modus-memory/.gomodcache go build ./cmd/homing
+GOCACHE=/tmp/modus-memory/.gocache GOMODCACHE=/tmp/modus-memory/.gomodcache go build ./cmd/modus-memory
+```
+
 ## v0.5.0 — Homing by MODUS
 
 `v0.5.0` is the first release in the **Homing by MODUS** line.

@@ -3,7 +3,8 @@ title: Homing Memory Update - April 2026
 date: 2026-04-16
 status: active
 product: Homing by MODUS
-binary_name: modus-memory
+binary_name: homing
+compatibility_binary_name: modus-memory
 ---
 
 # Homing Memory Update - April 2026
@@ -12,7 +13,9 @@ This document explains the current Homing update in plain language: what changed
 
 The public product name is **Homing by MODUS**.
 
-The current shipped binary and command name remain **`modus-memory`**.
+The current shipped primary binary and command name are now **`homing`**.
+
+The legacy compatibility alias remains **`modus-memory`**.
 
 ## What Homing Is Now
 
@@ -174,7 +177,9 @@ We fixed part of the trust gap by adding source verification and secure-state dr
 
 ## What Changed For Users
 
-If you use Homing through an MCP-capable client, the core setup is still simple: point the client at `modus-memory --vault ...`.
+If you use Homing through an MCP-capable client, the core setup is still simple: point the client at `homing --vault ...`.
+
+But the caveat is important: MCP connectivity alone does not produce automatic memory admission. If the client does not call the write tools, nothing durable is stored.
 
 If you use shell-native agents, the major change is that you should now prefer the attachment wrappers rather than trying to force every carrier into pretending it is a direct memory client.
 
@@ -191,7 +196,7 @@ Use this when the client can mount a stdio MCP server and call memory tools dire
 Example:
 
 ```bash
-modus-memory --vault ~/vault
+homing --vault ~/vault
 ```
 
 Typical clients:
@@ -199,7 +204,12 @@ Typical clients:
 - Claude Desktop
 - Claude Code in MCP mode
 - Cursor in MCP mode
+- Windsurf in MCP mode
+- Codex app in MCP mode
+- Antigravity in MCP mode
 - any agent framework with real stdio MCP support
+
+For Cursor, add an explicit memory policy. The recommended pattern is to call `memory_capture` at the end of every turn with `policy: balanced`, and to use `dry_run: true` when validating the policy without writing.
 
 ### Option 2: Plain shell or harness
 
@@ -239,13 +249,14 @@ If your client is MCP-capable, ask it to:
 - remember a durable preference
 - recall prior project decisions
 - search for related mission context
+- capture a turn through `memory_capture` so Homing itself decides whether to store an episode, facts, both, or nothing
 
 ### Shell attachment
 
 If your client is a plain shell, use the wrapper or raw attach command:
 
 ```bash
-modus-memory attach --carrier codex --prompt "Summarize the current task."
+homing attach --carrier codex --prompt "Summarize the current task."
 ```
 
 That run will recall hot memory first, augment the prompt, and write back receipts and traces.
@@ -257,10 +268,10 @@ Use proposals when you want memory changes to be explicit and reviewable.
 Examples:
 
 ```bash
-modus-memory propose-hot --fact-path memory/facts/general-preference.md --temperature hot --reason "Durable operator context."
-modus-memory propose-elder --fact-path memory/facts/founding-covenant.md --protection-class elder --reason "Long-horizon constitutional memory."
-modus-memory review-queue
-modus-memory resolve-review --status pending --set-status approved --reason "Approved after review."
+homing propose-hot --fact-path memory/facts/general-preference.md --temperature hot --reason "Durable operator context."
+homing propose-elder --fact-path memory/facts/founding-covenant.md --protection-class elder --reason "Long-horizon constitutional memory."
+homing review-queue
+homing resolve-review --status pending --set-status approved --reason "Approved after review."
 ```
 
 ## The Two Most Important Mental Models
@@ -277,9 +288,11 @@ It is routing, evidence, temperature, protection, review, and recall behavior. I
 
 The public name is **Homing by MODUS**.
 
-The current binary is still **`modus-memory`**.
+The current primary binary is **`homing`**.
 
-We intentionally changed the public story before changing the install surface. That keeps the docs honest and avoids breaking setups while the rename rolls through packaging and release infrastructure.
+The compatibility alias is **`modus-memory`**.
+
+We changed the install surface without severing existing integrations. New setups should prefer `homing`. Existing scripts and MCP configurations can continue to use `modus-memory` while they migrate on their own schedule.
 
 ## Related Docs
 

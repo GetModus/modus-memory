@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	app.Main("modus-memory", os.Args[1:])
+	app.Main("homing", os.Args[1:])
 }

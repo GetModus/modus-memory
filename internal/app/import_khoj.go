@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"archive/zip"
@@ -12,23 +12,21 @@ import (
 	"time"
 )
 
-// khojConversation represents a single exported Khoj conversation.
 type khojConversation struct {
-	Title    string `json:"title"`
-	Agent    string `json:"agent"`
-	Created  string `json:"created_at"` // "2024-01-15 10:30:45"
-	Updated  string `json:"updated_at"`
-	ChatLog  struct {
+	Title   string `json:"title"`
+	Agent   string `json:"agent"`
+	Created string `json:"created_at"`
+	Updated string `json:"updated_at"`
+	ChatLog struct {
 		Chat []khojMessage `json:"chat"`
 	} `json:"conversation_log"`
 	FileFilters []string `json:"file_filters"`
 }
 
-// khojMessage represents a single message in a Khoj conversation.
 type khojMessage struct {
-	By      string      `json:"by"`      // "user" or "khoj"
-	Message interface{} `json:"message"` // string or list of dicts
-	Created string      `json:"created"` // ISO timestamp
+	By      string      `json:"by"`
+	Message interface{} `json:"message"`
+	Created string      `json:"created"`
 	Intent  *struct {
 		Type     string   `json:"type"`
 		Query    string   `json:"query"`
@@ -40,11 +38,6 @@ type khojMessage struct {
 	} `json:"context,omitempty"`
 }
 
-// runImportKhoj converts a Khoj export (ZIP or JSON) into vault markdown files.
-//
-// Each conversation becomes a document in brain/khoj/.
-// Unique context references become memory facts in memory/facts/.
-// User messages are extracted as potential facts when they contain assertions.
 func runImportKhoj(exportPath, vaultDir string) {
 	data, err := readKhojExport(exportPath)
 	if err != nil {
@@ -60,11 +53,10 @@ func runImportKhoj(exportPath, vaultDir string) {
 
 	fmt.Printf("Found %d conversations in Khoj export\n", len(conversations))
 
-	// Ensure output directories
 	convDir := filepath.Join(vaultDir, "brain", "khoj")
 	factsDir := filepath.Join(vaultDir, "memory", "facts")
-	os.MkdirAll(convDir, 0755)
-	os.MkdirAll(factsDir, 0755)
+	_ = os.MkdirAll(convDir, 0o755)
+	_ = os.MkdirAll(factsDir, 0o755)
 
 	convCount := 0
 	factCount := 0
@@ -75,7 +67,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 			continue
 		}
 
-		// Convert conversation to markdown
 		slug := slugify(conv.Title)
 		if slug == "" {
 			slug = fmt.Sprintf("conversation-%d", convCount+1)
@@ -85,12 +76,10 @@ func runImportKhoj(exportPath, vaultDir string) {
 		filename := fmt.Sprintf("%s-%s.md", created.Format("2006-01-02"), slug)
 		path := filepath.Join(convDir, filename)
 
-		// Skip if already imported
 		if _, err := os.Stat(path); err == nil {
 			continue
 		}
 
-		// Build frontmatter
 		fm := map[string]interface{}{
 			"title":   conv.Title,
 			"source":  "khoj",
@@ -99,13 +88,11 @@ func runImportKhoj(exportPath, vaultDir string) {
 			"agent":   conv.Agent,
 		}
 
-		// Collect tags from intents
 		tags := collectTags(conv)
 		if len(tags) > 0 {
 			fm["tags"] = tags
 		}
 
-		// Build body
 		var body strings.Builder
 		for _, msg := range conv.ChatLog.Chat {
 			text := messageText(msg.Message)
@@ -128,14 +115,12 @@ func runImportKhoj(exportPath, vaultDir string) {
 		}
 		convCount++
 
-		// Extract unique context references as memory facts
 		for _, msg := range conv.ChatLog.Chat {
 			for _, ctx := range msg.Context {
 				if ctx.Compiled == "" || len(ctx.Compiled) < 50 {
 					continue
 				}
 
-				// Deduplicate by first 200 chars
 				key := ctx.Compiled
 				if len(key) > 200 {
 					key = key[:200]
@@ -145,7 +130,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 				}
 				seenContexts[key] = true
 
-				// Create a memory fact from the context
 				subject := ctx.File
 				if subject == "" {
 					subject = extractSubject(ctx.Compiled)
@@ -157,7 +141,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 				}
 				factPath := filepath.Join(factsDir, fmt.Sprintf("khoj-%s.md", factSlug))
 
-				// Skip if already exists
 				if _, err := os.Stat(factPath); err == nil {
 					continue
 				}
@@ -189,7 +172,6 @@ func runImportKhoj(exportPath, vaultDir string) {
 	fmt.Printf("Skipped: %d conversations (already imported or empty)\n", len(conversations)-convCount)
 }
 
-// readKhojExport reads a Khoj export from either a ZIP or raw JSON file.
 func readKhojExport(path string) ([]byte, error) {
 	if strings.HasSuffix(strings.ToLower(path), ".zip") {
 		return readFromZip(path)
@@ -197,7 +179,6 @@ func readKhojExport(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-// readFromZip extracts conversations.json from a Khoj ZIP export.
 func readFromZip(path string) ([]byte, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -219,24 +200,19 @@ func readFromZip(path string) ([]byte, error) {
 	return nil, fmt.Errorf("no conversations.json found in ZIP")
 }
 
-// parseKhojTime parses Khoj's timestamp format.
 func parseKhojTime(s string) time.Time {
-	// Try Khoj format: "2024-01-15 10:30:45"
 	if t, err := time.Parse("2006-01-02 15:04:05", s); err == nil {
 		return t
 	}
-	// Try ISO format
 	if t, err := time.Parse(time.RFC3339, s); err == nil {
 		return t
 	}
-	// Try date only
 	if t, err := time.Parse("2006-01-02", s); err == nil {
 		return t
 	}
 	return time.Now()
 }
 
-// messageText extracts text from a Khoj message (handles string or list-of-dicts).
 func messageText(msg interface{}) string {
 	switch v := msg.(type) {
 	case string:
@@ -255,7 +231,6 @@ func messageText(msg interface{}) string {
 	return ""
 }
 
-// collectTags extracts unique intent types from a conversation.
 func collectTags(conv khojConversation) []string {
 	seen := make(map[string]bool)
 	var tags []string
@@ -271,9 +246,7 @@ func collectTags(conv khojConversation) []string {
 	return tags
 }
 
-// extractSubject pulls a subject from context text (first sentence or line).
 func extractSubject(text string) string {
-	// Take first line, cap at 80 chars
 	line := strings.SplitN(text, "\n", 2)[0]
 	line = strings.TrimSpace(line)
 	if len(line) > 80 {
@@ -287,7 +260,6 @@ func extractSubject(text string) string {
 
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
-// slugify converts a string to a URL-safe slug.
 func slugify(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = slugRe.ReplaceAllString(s, "-")
@@ -298,7 +270,6 @@ func slugify(s string) string {
 	return s
 }
 
-// writeMarkdown writes a markdown file with YAML frontmatter.
 func writeMarkdown(path string, fm map[string]interface{}, body string) error {
 	f, err := os.Create(path)
 	if err != nil {

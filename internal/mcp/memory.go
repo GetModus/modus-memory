@@ -18,6 +18,7 @@ func RegisterMemoryTools(srv *Server, v *vault.Vault, isPro bool) {
 		"vault_list":                         true,
 		"vault_status":                       true,
 		"memory_facts":                       true,
+		"memory_capture":                     true,
 		"memory_episode_store":               true,
 		"memory_search":                      true,
 		"memory_store":                       true,
