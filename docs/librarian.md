@@ -102,7 +102,7 @@ The Librarian doesn't need a frontier model. It needs a fast, reliable model tha
 
 We run ours on Gemma 4 27B via Ollama. Any model that can reliably produce YAML frontmatter and follow classification rules will work.
 
-## Connecting to modus-memory
+## Connecting to Homing
 
 ### Option 1: MCP Tool Delegation
 
@@ -112,7 +112,7 @@ If your AI client supports MCP, the simplest setup is tool-level delegation. Con
 {
   "mcpServers": {
     "memory": {
-      "command": "modus-memory",
+      "command": "homing",
       "args": ["--vault", "~/vault"]
     }
   }
@@ -120,6 +120,8 @@ If your AI client supports MCP, the simplest setup is tool-level delegation. Con
 ```
 
 Then instruct your reasoning model: "For any memory operation, delegate to the Librarian. Do not write to memory directly."
+
+If an existing client is already wired to `modus-memory`, that compatibility alias still works.
 
 ### Option 2: Prompt Pipeline
 

@@ -540,7 +540,7 @@ User prefers React with TypeScript for all frontend projects.
 Server components when possible, Tailwind for styling.
 ```
 
-Files live in `~/vault/` (configurable with `--vault` or `MODUS_VAULT_DIR`). Back them up with git. Edit them in VS Code. Grep them from the terminal. They're just files.
+Files live in `~/vault/` by default, configurable with `--vault`, `HOMING_VAULT_DIR`, or the compatibility alias `MODUS_VAULT_DIR`. Back them up with git. Edit them in VS Code. Grep them from the terminal. They're just files.
 
 ### Search
 
@@ -647,7 +647,7 @@ The import is idempotent — safe to run multiple times.
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--vault` | `MODUS_VAULT_DIR` | `~/modus/vault` | Vault directory path |
+| `--vault` | `HOMING_VAULT_DIR` or `MODUS_VAULT_DIR` | `~/vault` | Vault directory path |
 
 ## Vault Structure
 

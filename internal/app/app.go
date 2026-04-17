@@ -208,11 +208,14 @@ func resolveVaultDir(flagDir string) string {
 	if flagDir != "" {
 		return flagDir
 	}
+	if envDir := os.Getenv("HOMING_VAULT_DIR"); envDir != "" {
+		return envDir
+	}
 	if envDir := os.Getenv("MODUS_VAULT_DIR"); envDir != "" {
 		return envDir
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "modus", "vault")
+	return filepath.Join(home, "vault")
 }
 
 func runImport(vaultDir string, args []string) {

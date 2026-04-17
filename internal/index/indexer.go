@@ -25,7 +25,7 @@ type Index struct {
 	engine   *bm25Engine
 	cache    *queryCache
 	facts    *factStore
-	cross    *crossIndex // subject/tag/entity cross-references
+	cross    *crossIndex          // subject/tag/entity cross-references
 	meta     map[string]*document // path → document for field lookups
 	docCount int
 	vaultDir string
@@ -139,10 +139,13 @@ func Build(vaultDir string, _ string) (*Index, error) {
 // Open is an alias for Build — there's no persistent index file to open.
 // The second argument (indexPath) is ignored; kept for interface compatibility.
 func Open(indexPath string) (*Index, error) {
-	// Infer vaultDir from indexPath: indexPath was typically ~/modus/data/index.sqlite
-	// The vault is at ~/modus/vault/
+	// Infer vaultDir from indexPath for compatibility. The standalone default is
+	// now ~/vault/, while MODUS estate deployments can still override with env.
 	home, _ := os.UserHomeDir()
-	vaultDir := filepath.Join(home, "modus", "vault")
+	vaultDir := filepath.Join(home, "vault")
+	if envDir := os.Getenv("HOMING_VAULT_DIR"); envDir != "" {
+		vaultDir = envDir
+	}
 	if envDir := os.Getenv("MODUS_VAULT_DIR"); envDir != "" {
 		vaultDir = envDir
 	}
